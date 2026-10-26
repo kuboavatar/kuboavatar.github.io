@@ -1537,7 +1537,14 @@
             body: JSON.stringify(body)
           }, settings.service === "custom" ? 300000 : 25000).then(function (res) {
             return res.json().then(function (data) {
-              if (!res.ok) throw new Error((data && data.error && (data.error.message || data.error)) || ("openai-error " + res.status));
+              if (!res.ok) {
+                var em = (data && data.error && (data.error.message || data.error)) || ("openai-error " + res.status);
+                // OpenRouter hides the real cause in error.metadata; show it.
+                var md = data && data.error && data.error.metadata;
+                if (md && (md.provider_name || md.raw)) em += "（提供元: " + (md.provider_name || "?") + (md.raw ? ": " + String(md.raw).slice(0, 120) : "") + "）";
+                if (data && data.error && data.error.code) em += " [code " + data.error.code + "]";
+                throw new Error(em);
+              }
               var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
               text = (text || "").trim();
               if (!text) throw new Error("empty");
