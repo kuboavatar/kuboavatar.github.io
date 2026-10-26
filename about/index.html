@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>このページについて | きなこAI接続版</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fffbf2;
+        --surface: #ffffff;
+        --text: #5c4633;
+        --dim: #9a8468;
+        --border: #f3e6cc;
+        --accent-strong: #e07a3e;
+        --kinako: #e2b273;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #241b12;
+          --surface: #2f2417;
+          --text: #f0e2cc;
+          --dim: #c4ab84;
+          --border: #4a3823;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+        line-height: 1.9;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 32px 20px 56px;
+      }
+      .mochi {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(--kinako);
+        margin: 8px auto 4px;
+        position: relative;
+      }
+      .mochi::before,
+      .mochi::after {
+        content: "";
+        position: absolute;
+        top: -10px;
+        width: 18px;
+        height: 22px;
+        background: var(--kinako);
+        border-radius: 60% 60% 40% 40%;
+      }
+      .mochi::before { left: 8px; transform: rotate(-14deg); }
+      .mochi::after { right: 8px; transform: rotate(14deg); }
+      h1 {
+        text-align: center;
+        font-size: 24px;
+        margin: 12px 0 4px;
+      }
+      .lead {
+        text-align: center;
+        color: var(--dim);
+        font-size: 14px;
+        margin: 0 0 28px;
+      }
+      section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+      }
+      h2 {
+        font-size: 17px;
+        margin: 0 0 8px;
+      }
+      p, li { font-size: 14.5px; }
+      p { margin: 6px 0; }
+      ol, ul { margin: 6px 0; padding-left: 22px; }
+      li { margin: 4px 0; }
+      .back {
+        text-align: center;
+        margin-top: 28px;
+      }
+      .back a {
+        display: inline-block;
+        background: var(--accent-strong);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+        padding: 12px 28px;
+        border-radius: 999px;
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mochi" aria-hidden="true"></div>
+      <h1>このページについて</h1>
+      <p class="lead">きなこAI接続版の、使い方と注意点のページです。</p>
+
+      <section>
+        <h2>これはなんのページ？</h2>
+        <p>画面のきなこに話しかけると、返事を読み上げてくれるページです。自分のAPIキーを設定すると、選んだAIサービスが「きなこ役」で返事をします。キーを設定しなくても、あらかじめ用意されたセリフの中から返事をするので、そのまま遊べます。</p>
+      </section>
+
+      <section>
+        <h2>使い方</h2>
+        <ol>
+          <li>トップページ右上の歯車ボタンを押して、設定を開きます。</li>
+          <li>接続先サービス（Gemini／OpenAI／OpenAI互換カスタム）を選び、自分のAPIキーとモデル名を入れます。</li>
+          <li>キーの保存方法を選びます。「開いている間だけ」は、タブを閉じるとキーが消える一番安全な方法です。</li>
+          <li>「保存して閉じる」を押したら、下の入力欄から話しかけてみてください。</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>APIキーとプライバシー</h2>
+        <ul>
+          <li>APIキーは、あなたの端末のブラウザ内にだけ保存されます。このページのサーバーに送られたり、保存されたりすることはありません。</li>
+          <li>あなたが書いた文章は、返事を作るために、選んだAIサービスの公式APIへ直接送られます。送られた文章は、そのサービスのルールで扱われます。</li>
+          <li>秘密情報や個人情報は入力しないでください。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>注意（免責）</h2>
+        <ul>
+          <li>このページは、個人が趣味で作った非公式のものです。Meta社や、各AIサービスの提供会社とは関係ありません。</li>
+          <li>返事はAIが作る文章です。内容の正しさは保証しません。大事な判断（医療・法律・お金など）には使わないでください。</li>
+          <li>APIの利用料金がかかる場合は、キーを持つ人の負担になります。</li>
+          <li>このページを使って起きたトラブルについて、作り手は責任を負えません。自己責任で使ってください。</li>
+          <li>内容は、予告なく変えたり、公開をやめたりすることがあります。</li>
+        </ul>
+      </section>
+
+      <p class="back"><a href="../">← トップページへもどる</a></p>
+    </main>
+  </body>
+</html>
