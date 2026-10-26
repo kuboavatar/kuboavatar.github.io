@@ -149,6 +149,10 @@
         border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font: inherit; font-size: 15px;
       }
       .key-status { font-size: 12px; font-weight: 600; color: var(--accent-strong); margin-top: 4px; min-height: 16px; }
+      .field input[type="range"] { width: 100%; min-height: 32px; accent-color: var(--accent-strong); }
+      .panel-subhead { font-size: 15px; margin: 22px 0 6px; padding-top: 16px; border-top: 1px solid var(--border); }
+      .mini-btn { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+      .range-val { font-weight: 700; color: var(--accent-strong); }
       .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
       .about-link-row { text-align: center; margin: 16px 0 0; font-size: 13.5px; }
       .about-link-row a { color: var(--accent-strong); font-weight: 700; text-decoration: none; }
@@ -319,6 +323,60 @@
           <p class="help">どちらも保存先はこの端末のブラウザ内だけです。サーバー側には保存されません。</p>
         </div>
 
+        <h3 class="panel-subhead">声の設定</h3>
+        <p class="panel-desc">読み上げの声はここで選べるよ。ふだんはブラウザ（PCやスマホ）の声でOK。VOICEVOX や AivisSpeech を自分のPCで起動している場合は、その声も使えるよ。</p>
+
+        <div class="field">
+          <label for="voiceEngineSelect">声のエンジン</label>
+          <select id="voiceEngineSelect">
+            <option value="browser">ブラウザの声（PC・スマホ標準）</option>
+            <option value="local">ローカルエンジン（VOICEVOX互換）</option>
+          </select>
+        </div>
+
+        <div id="browserVoiceFields">
+          <div class="field">
+            <label for="browserVoiceSelect">声（ブラウザ）</label>
+            <select id="browserVoiceSelect"></select>
+            <p class="help">この端末のブラウザが持っている声のリストだよ。端末やブラウザによって顔ぶれが違うよ。</p>
+          </div>
+          <div class="field">
+            <label for="voiceRateRange">話す速さ（ブラウザ） <span class="range-val" id="voiceRateVal"></span></label>
+            <input type="range" id="voiceRateRange" min="0.5" max="2" step="0.05" />
+          </div>
+          <div class="field">
+            <label for="voicePitchRange">声の高さ <span class="range-val" id="voicePitchVal"></span></label>
+            <input type="range" id="voicePitchRange" min="0" max="2" step="0.05" />
+          </div>
+        </div>
+
+        <div id="localVoiceFields" style="display:none">
+          <div class="field">
+            <label for="localEnginePreset">エンジンの種類</label>
+            <select id="localEnginePreset">
+              <option value="aivis">AivisSpeech（http://127.0.0.1:10101）</option>
+              <option value="voicevox">VOICEVOX（http://127.0.0.1:50021）</option>
+              <option value="coeiroink">COEIROINK（http://127.0.0.1:50032）</option>
+              <option value="custom">カスタムURL</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="localVoiceUrlInput">エンジンのURL</label>
+            <input type="url" id="localVoiceUrlInput" placeholder="http://127.0.0.1:10101" autocomplete="off" spellcheck="false" />
+            <button type="button" class="mini-btn" id="fetchSpeakersBtn">接続して声のリストを取得</button>
+            <div class="key-status" id="speakersStatus"></div>
+            <p class="help">エンジンを起動した状態で押してね。httpsのページから自分のPC内のエンジンへ繋ぐため、ブラウザに止められることがあるよ。その場合はブラウザのサイト設定で、ローカルネットワークへの接続や安全でないコンテンツを許可してね。声の合成は自分のPCの中で行われ、読み上げる文章が外部に送られることはないよ。</p>
+          </div>
+          <div class="field">
+            <label for="localSpeakerSelect">話者（ローカル）</label>
+            <select id="localSpeakerSelect"></select>
+          </div>
+          <div class="field">
+            <label for="localSpeedRange">話す速さ（ローカル） <span class="range-val" id="localSpeedVal"></span></label>
+            <input type="range" id="localSpeedRange" min="0.5" max="2" step="0.05" />
+          </div>
+        </div>
+
         <div class="panel-actions">
           <button type="button" class="save-btn" id="saveSettingsBtn">保存して閉じる</button>
           <button type="button" class="delete-btn" id="deleteKeyBtn">キーを消す</button>
@@ -452,7 +510,9 @@
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
       // Settings state (in memory). Key lives only here + chosen browser storage.
-      var settings = { service: "gemini", apiKey: "", model: "gemini-2.5-flash", endpoint: "", saveMode: "session" };
+      var settings = { service: "gemini", apiKey: "", model: "gemini-2.5-flash", endpoint: "", saveMode: "session",
+        voiceEngine: "browser", browserVoiceURI: "", voiceRate: 1.1, voicePitch: 1.15,
+        localEnginePreset: "aivis", localVoiceUrl: "http://127.0.0.1:10101", localSpeakerId: "", localSpeakerLabel: "", localSpeed: 1.1 };
 
       function loadSettings() {
         var raw = null;
@@ -467,6 +527,15 @@
               if (typeof parsed.model === "string" && parsed.model) settings.model = parsed.model;
               if (typeof parsed.endpoint === "string") settings.endpoint = parsed.endpoint;
               if (parsed.saveMode) settings.saveMode = parsed.saveMode;
+              if (parsed.voiceEngine) settings.voiceEngine = parsed.voiceEngine;
+              if (typeof parsed.browserVoiceURI === "string") settings.browserVoiceURI = parsed.browserVoiceURI;
+              if (typeof parsed.voiceRate === "number") settings.voiceRate = parsed.voiceRate;
+              if (typeof parsed.voicePitch === "number") settings.voicePitch = parsed.voicePitch;
+              if (parsed.localEnginePreset) settings.localEnginePreset = parsed.localEnginePreset;
+              if (typeof parsed.localVoiceUrl === "string" && parsed.localVoiceUrl) settings.localVoiceUrl = parsed.localVoiceUrl;
+              if (parsed.localSpeakerId !== undefined && parsed.localSpeakerId !== null) settings.localSpeakerId = parsed.localSpeakerId;
+              if (typeof parsed.localSpeakerLabel === "string") settings.localSpeakerLabel = parsed.localSpeakerLabel;
+              if (typeof parsed.localSpeed === "number") settings.localSpeed = parsed.localSpeed;
             }
           } catch (e) {}
         }
@@ -474,7 +543,9 @@
       }
 
       function persistSettings() {
-        var payload = JSON.stringify({ service: settings.service, apiKey: settings.apiKey, model: settings.model, endpoint: settings.endpoint, saveMode: settings.saveMode });
+        var payload = JSON.stringify({ service: settings.service, apiKey: settings.apiKey, model: settings.model, endpoint: settings.endpoint, saveMode: settings.saveMode,
+          voiceEngine: settings.voiceEngine, browserVoiceURI: settings.browserVoiceURI, voiceRate: settings.voiceRate, voicePitch: settings.voicePitch,
+          localEnginePreset: settings.localEnginePreset, localVoiceUrl: settings.localVoiceUrl, localSpeakerId: settings.localSpeakerId, localSpeakerLabel: settings.localSpeakerLabel, localSpeed: settings.localSpeed });
         try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) {}
         try { window.sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
         try {
@@ -547,6 +618,21 @@
       var saveModeSelect = document.getElementById("saveModeSelect");
       var saveSettingsBtn = document.getElementById("saveSettingsBtn");
       var deleteKeyBtn = document.getElementById("deleteKeyBtn");
+      var voiceEngineSelect = document.getElementById("voiceEngineSelect");
+      var browserVoiceFields = document.getElementById("browserVoiceFields");
+      var browserVoiceSelect = document.getElementById("browserVoiceSelect");
+      var voiceRateRange = document.getElementById("voiceRateRange");
+      var voiceRateVal = document.getElementById("voiceRateVal");
+      var voicePitchRange = document.getElementById("voicePitchRange");
+      var voicePitchVal = document.getElementById("voicePitchVal");
+      var localVoiceFields = document.getElementById("localVoiceFields");
+      var localEnginePreset = document.getElementById("localEnginePreset");
+      var localVoiceUrlInput = document.getElementById("localVoiceUrlInput");
+      var fetchSpeakersBtn = document.getElementById("fetchSpeakersBtn");
+      var speakersStatus = document.getElementById("speakersStatus");
+      var localSpeakerSelect = document.getElementById("localSpeakerSelect");
+      var localSpeedRange = document.getElementById("localSpeedRange");
+      var localSpeedVal = document.getElementById("localSpeedVal");
 
       var speaking = false;
       var thinking = false;
@@ -628,6 +714,7 @@
         renderSubtitle();
         var session = ++speakSession;
         if (speakTimer) { clearTimeout(speakTimer); speakTimer = null; }
+        stopLocalAudio();
 
         function visualOnly() {
           setSpeaking(true);
@@ -641,14 +728,18 @@
         if (!synth) { visualOnly(); return; }
 
         var lines = splitLines(text);
+        if (settings.voiceEngine === "local" && !localEngineFailedOnce && settings.localSpeakerId !== "" && settings.localSpeakerId !== null) { speakWithLocalEngine(text, lines, session); return; }
         setSpeaking(true);
         try { synth.cancel(); } catch (e) {}
         var voices = synth.getVoices();
+        var chosen = null;
         var ja = null;
         for (var vi = 0; vi < voices.length; vi++) {
-          if (voices[vi].lang && voices[vi].lang.indexOf("ja") === 0) { ja = voices[vi]; break; }
+          if (settings.browserVoiceURI && voices[vi].voiceURI === settings.browserVoiceURI) chosen = voices[vi];
+          if (!ja && voices[vi].lang && voices[vi].lang.indexOf("ja") === 0) ja = voices[vi];
         }
-        function lineMs(line) { return Math.max(1200, line.length * 165); }
+        if (!chosen) chosen = ja;
+        function lineMs(line) { return Math.max(1200, line.length * 165 / (Number(settings.voiceRate) || 1.1)); }
         function speakLine(i) {
           if (speakSession !== session) return;
           var line = lines[i];
@@ -659,9 +750,9 @@
           }
           var u = new SpeechSynthesisUtterance(line);
           u.lang = "ja-JP";
-          u.rate = 1.1;
-          u.pitch = 1.15;
-          if (ja) u.voice = ja;
+          u.rate = Number(settings.voiceRate) || 1.1;
+          u.pitch = Number(settings.voicePitch) || 1.15;
+          if (chosen) u.voice = chosen;
           var settled = false;
           var startTimer = null;
           var endTimer = null;
@@ -708,6 +799,78 @@
         }, Math.max(3000, Math.min(60000, text.length * 220 + lines.length * 3500 + 2000)));
       }
 
+      var currentAudio = null;
+      var currentAudioUrl = null;
+      var localEngineFailedOnce = false;
+
+      function stopLocalAudio() {
+        if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
+        if (currentAudioUrl) { try { URL.revokeObjectURL(currentAudioUrl); } catch (e) {} currentAudioUrl = null; }
+      }
+
+      function speakWithLocalEngine(text, lines, session) {
+        var base = (settings.localVoiceUrl || "").replace(/\/+$/, "");
+        var speakerId = settings.localSpeakerId;
+        if (!base || speakerId === "" || speakerId === null) return;
+        setSpeaking(true);
+        speakTimer = setTimeout(function () {
+          if (speakSession === session) setSpeaking(false);
+        }, Math.max(5000, Math.min(120000, text.length * 400 + lines.length * 4000 + 2000)));
+        var idx = 0;
+        function fail() {
+          if (speakSession !== session) return;
+          if (idx <= 1) {
+            localEngineFailedOnce = true;
+            replySource.textContent = "ローカルの声エンジンに繋がらなかったので、ブラウザの声で読んだよ";
+            speak(text);
+          } else {
+            next();
+          }
+        }
+        function next() {
+          if (speakSession !== session) return;
+          if (idx >= lines.length) { setSpeaking(false); return; }
+          var line = lines[idx];
+          idx++;
+          var qUrl = base + "/audio_query?text=" + encodeURIComponent(line) + "&speaker=" + encodeURIComponent(speakerId);
+          fetchWithTimeout(qUrl, { method: "POST" }, 15000).then(function (res) {
+            if (!res.ok) throw new Error("audio_query " + res.status);
+            return res.json();
+          }).then(function (query) {
+            query.speedScale = Number(settings.localSpeed) || 1.0;
+            query.volumeScale = 1.0;
+            return fetchWithTimeout(base + "/synthesis?speaker=" + encodeURIComponent(speakerId), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(query)
+            }, 30000);
+          }).then(function (res) {
+            if (!res.ok) throw new Error("synthesis " + res.status);
+            return res.blob();
+          }).then(function (blob) {
+            if (speakSession !== session) return;
+            stopLocalAudio();
+            var url = URL.createObjectURL(blob);
+            currentAudioUrl = url;
+            var audio = new Audio(url);
+            currentAudio = audio;
+            audio.onplay = function () {
+              if (speakSession !== session) return;
+              localEngineFailedOnce = false;
+              voiceSync = true;
+              lineIndex = idx - 1;
+              renderSubtitle();
+              setSpeaking(true);
+            };
+            audio.onended = function () { if (speakSession === session) next(); };
+            audio.onerror = function () { if (speakSession === session) next(); };
+            var p = audio.play();
+            if (p && p.catch) p.catch(function () { if (speakSession === session) next(); });
+          }).catch(fail);
+        }
+        next();
+      }
+
       function drawPhraseAndSpeak() {
         if (tapBag.length === 0) tapBag = shuffledBag(lastTapIndex);
         var index = tapBag.shift();
@@ -747,6 +910,7 @@
           voiceSync = false;
           if (speakTimer) { clearTimeout(speakTimer); speakTimer = null; }
           try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+          stopLocalAudio();
           setSpeaking(false);
           renderSubtitle();
         }
@@ -798,6 +962,94 @@
         return modelSelect.value;
       }
 
+      // ---- Voice settings ----
+      var LOCAL_ENGINE_PRESETS = { voicevox: "http://127.0.0.1:50021", aivis: "http://127.0.0.1:10101", coeiroink: "http://127.0.0.1:50032", custom: "" };
+
+      function refreshBrowserVoiceOptions() {
+        if (!("speechSynthesis" in window)) return;
+        var voices = window.speechSynthesis.getVoices() || [];
+        var current = browserVoiceSelect.value || settings.browserVoiceURI || "";
+        browserVoiceSelect.innerHTML = "";
+        var auto = document.createElement("option");
+        auto.value = "";
+        auto.textContent = "自動（日本語の声を優先）";
+        browserVoiceSelect.appendChild(auto);
+        var sorted = voices.slice().sort(function (a, b) {
+          var aj = a.lang && a.lang.indexOf("ja") === 0 ? 0 : 1;
+          var bj = b.lang && b.lang.indexOf("ja") === 0 ? 0 : 1;
+          if (aj !== bj) return aj - bj;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+        for (var i = 0; i < sorted.length; i++) {
+          var opt = document.createElement("option");
+          opt.value = sorted[i].voiceURI;
+          opt.textContent = sorted[i].name + "（" + (sorted[i].lang || "") + "）";
+          browserVoiceSelect.appendChild(opt);
+        }
+        browserVoiceSelect.value = current;
+        if (browserVoiceSelect.value !== current) browserVoiceSelect.value = "";
+      }
+
+      function syncVoiceFieldsVisibility() {
+        var isLocal = voiceEngineSelect.value === "local";
+        browserVoiceFields.style.display = isLocal ? "none" : "";
+        localVoiceFields.style.display = isLocal ? "" : "none";
+      }
+
+      function updateRangeLabels() {
+        voiceRateVal.textContent = (Number(voiceRateRange.value) || 1.1).toFixed(2) + "倍";
+        voicePitchVal.textContent = (Number(voicePitchRange.value) || 1.15).toFixed(2);
+        localSpeedVal.textContent = (Number(localSpeedRange.value) || 1.1).toFixed(2) + "倍";
+      }
+
+      function resetLocalSpeakerOptions() {
+        localSpeakerSelect.innerHTML = "";
+        var opt = document.createElement("option");
+        if (settings.localSpeakerId !== "" && settings.localSpeakerId !== null && settings.localSpeakerId !== undefined) {
+          opt.value = settings.localSpeakerId;
+          opt.textContent = settings.localSpeakerLabel || ("保存済みの話者（ID: " + settings.localSpeakerId + "）");
+        } else {
+          opt.value = "";
+          opt.textContent = "（上のボタンでリストを取得してね）";
+        }
+        localSpeakerSelect.appendChild(opt);
+      }
+
+      voiceEngineSelect.addEventListener("change", syncVoiceFieldsVisibility);
+      localEnginePreset.addEventListener("change", function () {
+        var url = LOCAL_ENGINE_PRESETS[localEnginePreset.value];
+        if (url) localVoiceUrlInput.value = url;
+      });
+      voiceRateRange.addEventListener("input", updateRangeLabels);
+      voicePitchRange.addEventListener("input", updateRangeLabels);
+      localSpeedRange.addEventListener("input", updateRangeLabels);
+      fetchSpeakersBtn.addEventListener("click", function () {
+        var base = localVoiceUrlInput.value.trim().replace(/\/+$/, "");
+        if (!base) { speakersStatus.textContent = "URLが空だよ"; return; }
+        speakersStatus.textContent = "接続中…";
+        fetchWithTimeout(base + "/speakers", { method: "GET" }, 10000).then(function (res) {
+          if (!res.ok) throw new Error("status " + res.status);
+          return res.json();
+        }).then(function (list) {
+          localSpeakerSelect.innerHTML = "";
+          var count = 0;
+          (list || []).forEach(function (sp) {
+            (sp.styles || []).forEach(function (st) {
+              var opt = document.createElement("option");
+              opt.value = st.id;
+              opt.textContent = sp.name + " / " + st.name;
+              localSpeakerSelect.appendChild(opt);
+              count++;
+            });
+          });
+          if (!count) throw new Error("empty");
+          if (settings.localSpeakerId !== "" && settings.localSpeakerId !== null) localSpeakerSelect.value = settings.localSpeakerId;
+          speakersStatus.textContent = count + "件の声が見つかったよ。選んだら「保存して閉じる」を押してね";
+        }).catch(function () {
+          speakersStatus.textContent = "繋がらなかったよ。エンジンが起動しているか、URLとブラウザの許可を確認してね";
+        });
+      });
+
       function syncSettingsForm() {
         serviceSelect.value = settings.service;
         endpointField.style.display = settings.service === "custom" ? "" : "none";
@@ -808,6 +1060,18 @@
         apiKeyInput.value = "";
         saveModeSelect.value = settings.saveMode || "session";
         keyStatus.textContent = settings.apiKey ? "キーは設定済みだよ（全文は表示しないよ）" : "キーはまだ未設定だよ";
+        voiceEngineSelect.value = settings.voiceEngine || "browser";
+        refreshBrowserVoiceOptions();
+        browserVoiceSelect.value = settings.browserVoiceURI || "";
+        voiceRateRange.value = settings.voiceRate;
+        voicePitchRange.value = settings.voicePitch;
+        localEnginePreset.value = settings.localEnginePreset || "aivis";
+        localVoiceUrlInput.value = settings.localVoiceUrl || "";
+        localSpeedRange.value = settings.localSpeed;
+        resetLocalSpeakerOptions();
+        speakersStatus.textContent = "";
+        updateRangeLabels();
+        syncVoiceFieldsVisibility();
       }
 
       function openSettings() {
@@ -840,6 +1104,18 @@
         settings.endpoint = endpointInput.value.trim();
         settings.model = currentFormModel() || DEFAULT_MODELS[settings.service] || "";
         settings.saveMode = saveModeSelect.value;
+        settings.voiceEngine = voiceEngineSelect.value;
+        settings.browserVoiceURI = browserVoiceSelect.value;
+        settings.voiceRate = parseFloat(voiceRateRange.value) || 1.1;
+        settings.voicePitch = parseFloat(voicePitchRange.value) || 1.15;
+        settings.localEnginePreset = localEnginePreset.value;
+        settings.localVoiceUrl = localVoiceUrlInput.value.trim();
+        settings.localSpeed = parseFloat(localSpeedRange.value) || 1.1;
+        if (localSpeakerSelect.value !== "") {
+          settings.localSpeakerId = localSpeakerSelect.value;
+          var selOpt = localSpeakerSelect.options[localSpeakerSelect.selectedIndex];
+          settings.localSpeakerLabel = selOpt ? selOpt.textContent : "";
+        }
         var newKey = apiKeyInput.value.trim();
         if (newKey) settings.apiKey = newKey;
         persistSettings();
@@ -883,13 +1159,13 @@
         return t.trim();
       }
 
-      function callGemini(userText) {
+      function callGeminiNative(userText) {
         var model = settings.model || DEFAULT_MODELS.gemini;
         var url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
-        // Gemma models on the Gemini API do not support system instructions,
-        // and their replies can include reasoning text. For Gemma, put the
-        // persona at the head of the first user message instead, and filter
-        // thought parts out of the reply.
+        // Gemma 4 thinks by default: its thought tokens can eat the whole
+        // output budget (leaving an empty reply) or leak into the text.
+        // Turn thinking off (below), keep the persona at the head of the
+        // first user message, and filter thought parts out of the reply.
         var isGemma = /^gemma/i.test(model);
         var contents = [];
         var recent = history.slice(-MAX_TURNS * 2);
@@ -897,8 +1173,9 @@
           contents.push({ role: recent[i].role === "assistant" ? "model" : "user", parts: [{ text: recent[i].text }] });
         }
         contents.push({ role: "user", parts: [{ text: userText }] });
-        var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: 300 } };
+        var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: isGemma ? 1024 : 300 } };
         if (isGemma) {
+          payload.generationConfig.thinkingConfig = { thinkingLevel: "minimal" };
           var instruction = "【指示】" + PERSONA + " 指示への言及や、考える過程は書かず、返事だけを書いてください。\n\n";
           if (contents.length) contents[0].parts[0].text = instruction + contents[0].parts[0].text;
         } else {
@@ -910,13 +1187,30 @@
           body: JSON.stringify(payload)
         }, 25000).then(function (res) {
           return res.json().then(function (data) {
-            if (!res.ok) throw new Error("gemini-error");
-            var parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+            if (!res.ok) throw new Error((data && data.error && data.error.message) || ("gemini-error " + res.status));
+            var cand = data && data.candidates && data.candidates[0];
+            var parts = cand && cand.content && cand.content.parts;
             var text = "";
             if (parts) { for (var p = 0; p < parts.length; p++) { if (parts[p].text && !parts[p].thought) text += parts[p].text; } }
             text = cleanReplyText(text);
-            if (!text) throw new Error("empty");
+            if (!text) throw new Error("empty reply" + (cand && cand.finishReason ? " (" + cand.finishReason + ")" : ""));
             return text;
+          });
+        });
+      }
+
+      function callGemini(userText) {
+        var model = settings.model || DEFAULT_MODELS.gemini;
+        if (!/^gemma/i.test(model)) return callGeminiNative(userText);
+        // Gemma goes through the native Gemini route first (the officially
+        // documented way to call Gemma on the Gemini API). If that fails,
+        // retry once through Google's OpenAI-compatible endpoint with the
+        // same key and model, and report both errors if both fail.
+        return callGeminiNative(userText).catch(function (nativeErr) {
+          return callOpenAICompatible(userText, "https://generativelanguage.googleapis.com/v1beta/openai").then(function (text) {
+            return cleanReplyText(text);
+          }, function (compatErr) {
+            throw new Error("Gemini形式: " + (nativeErr && nativeErr.message ? nativeErr.message : "エラー") + " / OpenAI互換形式: " + (compatErr && compatErr.message ? compatErr.message : "エラー"));
           });
         });
       }
@@ -936,7 +1230,7 @@
           body: JSON.stringify({ model: settings.model, messages: messages, temperature: 0.9, max_tokens: 300 })
         }, 25000).then(function (res) {
           return res.json().then(function (data) {
-            if (!res.ok) throw new Error("openai-error");
+            if (!res.ok) throw new Error((data && data.error && (data.error.message || data.error)) || ("openai-error " + res.status));
             var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
             text = (text || "").trim();
             if (!text) throw new Error("empty");
@@ -994,16 +1288,21 @@
             if (history.length > MAX_TURNS * 2) history = history.slice(-MAX_TURNS * 2);
             replySource.textContent = SERVICE_NAMES[settings.service] + "（" + (settings.model || "") + "）がお返事したよ";
             speak(cleaned);
-          }).catch(function () {
+          }).catch(function (err) {
             thinking = false;
             hint.textContent = "タップすると跳ねるにゃ";
-            fallbackSpeak("プールからお返事したよ（AIでエラーが起きたみたい）");
+            var msg = err && err.message ? String(err.message).slice(0, 140) : "不明なエラー";
+            fallbackSpeak("プールからお返事したよ（AIエラー: " + msg + "）");
           });
         }, 900);
       });
 
       // Init
       loadSettings();
+      refreshBrowserVoiceOptions();
+      if ("speechSynthesis" in window && window.speechSynthesis.addEventListener) {
+        window.speechSynthesis.addEventListener("voiceschanged", refreshBrowserVoiceOptions);
+      }
       updateConnLabel();
       renderSubtitle();
       updateVoiceBtn();
