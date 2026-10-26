@@ -289,22 +289,33 @@
           <select id="serviceSelect">
             <option value="gemini">Gemini（Google）</option>
             <option value="openai">OpenAI</option>
+            <option value="claude">Claude（Anthropic）</option>
             <option value="custom">OpenAI互換（カスタム）</option>
           </select>
-          <p class="help">Geminiは Google AI Studio のキー、OpenAIは OpenAI のキーを使います。カスタムは OpenAI互換のエンドポイント（xAI、Mistral、ローカルモデルなど）に使えます。</p>
+          <p class="help">Geminiは Google AI Studio のキー、OpenAIは OpenAI のキー、Claudeは Anthropic のキーを使います。カスタムは OpenAI互換のエンドポイント（Ollamaなどローカルモデル、xAI、Mistralなど）に使えます。</p>
         </div>
 
         <div class="field" id="endpointField" style="display:none">
-          <label for="endpointInput">エンドポイントURL（カスタム用）</label>
+          <label for="endpointPreset">接続先プリセット（カスタム用）</label>
+          <select id="endpointPreset">
+            <option value="ollama">Ollama（ローカル）</option>
+            <option value="lmstudio">LM Studio（ローカル）</option>
+            <option value="customurl">カスタムURL（自由に書く）</option>
+          </select>
+          <label for="endpointInput" style="margin-top:10px;">エンドポイントURL（カスタム用）</label>
           <input type="url" id="endpointInput" placeholder="https://example.com/v1" autocomplete="off" spellcheck="false" />
-          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。</p>
+          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。Ollama は http://localhost:11434/v1 で、APIキーは空でOKです。繋がらない時は、Ollama の環境変数 OLLAMA_ORIGINS に https://kuboavatar.github.io を許可して、Ollamaを再起動してね。</p>
         </div>
 
         <div class="field">
           <label for="modelSelect">モデル</label>
           <select id="modelSelect"></select>
           <input type="text" id="modelInput" placeholder="gemini-2.5-flash" autocomplete="off" spellcheck="false" style="display:none; margin-top:8px;" />
-          <p class="help">リストから選べます。「カスタム入力」を選ぶと、モデル名を自由に書けます。サービスを切り替えると、そのサービスの初期値に戻ります。</p>
+          <div style="margin-top:8px;">
+            <button type="button" id="fetchModelsBtn" class="mini-btn">有効なモデル一覧を取得</button>
+            <span class="help" id="modelFetchStatus"></span>
+          </div>
+          <p class="help">「有効なモデル一覧を取得」を押すと、キーで使えるモデルをサービスから取り寄せてリストに入れます。「カスタム入力」を選ぶと、モデル名を自由に書けます。サービスを切り替えると、そのサービスの初期値に戻ります。</p>
         </div>
 
         <div class="field">
@@ -519,17 +530,19 @@
 
       var PERSONA = "あなたは「きなこ」として振る舞ってください。明るく弾む相棒のような口調で、短く自然な日本語で答えてください。語尾に「にゃ」を効果的な所だけ時々使ってください。読み上げられる前提なので、Markdown記法、URL、絵文字は使わないでください。1〜3文程度で簡潔に、温かく答えてください。";
 
-      var DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openai: "gpt-4o-mini", custom: "" };
+      var DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openai: "gpt-4o-mini", claude: "claude-sonnet-4-5", custom: "" };
       var MODEL_PRESETS = {
         gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemma-4-26b-a4b-it", "gemma-4-31b-it"],
         openai: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"],
+        claude: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1", "claude-sonnet-4-0"],
         custom: []
       };
-      var SERVICE_NAMES = { gemini: "Gemini", openai: "OpenAI", custom: "カスタム" };
+      var SERVICE_NAMES = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", custom: "カスタム" };
+      var ENDPOINT_PRESETS = { ollama: "http://localhost:11434/v1", lmstudio: "http://localhost:1234/v1" };
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
       // Settings state (in memory). Key lives only here + chosen browser storage.
-      var settings = { service: "gemini", apiKey: "", model: "gemini-2.5-flash", endpoint: "", saveMode: "session",
+      var settings = { service: "gemini", apiKey: "", model: "gemini-2.5-flash", endpoint: "", saveMode: "session", modelOptions: {},
         voiceEngine: "browser", browserVoiceURI: "", voiceRate: 1.1, voicePitch: 1.15,
         localEnginePreset: "aivis", localVoiceUrl: "http://127.0.0.1:10101", localSpeakerId: "", localSpeakerLabel: "", localSpeed: 1.1 };
 
@@ -555,6 +568,7 @@
               if (parsed.localSpeakerId !== undefined && parsed.localSpeakerId !== null) settings.localSpeakerId = parsed.localSpeakerId;
               if (typeof parsed.localSpeakerLabel === "string") settings.localSpeakerLabel = parsed.localSpeakerLabel;
               if (typeof parsed.localSpeed === "number") settings.localSpeed = parsed.localSpeed;
+              if (parsed.modelOptions && typeof parsed.modelOptions === "object") settings.modelOptions = parsed.modelOptions;
             }
           } catch (e) {}
         }
@@ -562,7 +576,7 @@
       }
 
       function persistSettings() {
-        var payload = JSON.stringify({ service: settings.service, apiKey: settings.apiKey, model: settings.model, endpoint: settings.endpoint, saveMode: settings.saveMode,
+        var payload = JSON.stringify({ service: settings.service, apiKey: settings.apiKey, model: settings.model, endpoint: settings.endpoint, saveMode: settings.saveMode, modelOptions: settings.modelOptions,
           voiceEngine: settings.voiceEngine, browserVoiceURI: settings.browserVoiceURI, voiceRate: settings.voiceRate, voicePitch: settings.voicePitch,
           localEnginePreset: settings.localEnginePreset, localVoiceUrl: settings.localVoiceUrl, localSpeakerId: settings.localSpeakerId, localSpeakerLabel: settings.localSpeakerLabel, localSpeed: settings.localSpeed });
         try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) {}
@@ -630,6 +644,9 @@
       var serviceSelect = document.getElementById("serviceSelect");
       var endpointField = document.getElementById("endpointField");
       var endpointInput = document.getElementById("endpointInput");
+      var endpointPreset = document.getElementById("endpointPreset");
+      var fetchModelsBtn = document.getElementById("fetchModelsBtn");
+      var modelFetchStatus = document.getElementById("modelFetchStatus");
       var modelInput = document.getElementById("modelInput");
       var modelSelect = document.getElementById("modelSelect");
       var apiKeyInput = document.getElementById("apiKeyInput");
@@ -958,7 +975,8 @@
 
       // ---- Settings panel ----
       function rebuildModelOptions(svc, current) {
-        var presets = MODEL_PRESETS[svc] || [];
+        var fetched = settings.modelOptions && settings.modelOptions[svc];
+        var presets = (fetched && fetched.length) ? fetched : (MODEL_PRESETS[svc] || []);
         modelSelect.innerHTML = "";
         for (var i = 0; i < presets.length; i++) {
           var opt = document.createElement("option");
@@ -1080,10 +1098,18 @@
         });
       });
 
+      function syncEndpointPreset() {
+        if (endpointInput.value === ENDPOINT_PRESETS.ollama) endpointPreset.value = "ollama";
+        else if (endpointInput.value === ENDPOINT_PRESETS.lmstudio) endpointPreset.value = "lmstudio";
+        else endpointPreset.value = "customurl";
+      }
+
       function syncSettingsForm() {
         serviceSelect.value = settings.service;
         endpointField.style.display = settings.service === "custom" ? "" : "none";
         endpointInput.value = settings.endpoint || "";
+        if (settings.service === "custom" && !endpointInput.value) endpointInput.value = ENDPOINT_PRESETS.ollama;
+        syncEndpointPreset();
         modelInput.value = settings.model || "";
         modelInput.placeholder = DEFAULT_MODELS[settings.service] || "モデル名を入力";
         rebuildModelOptions(settings.service, settings.model || "");
@@ -1122,9 +1148,57 @@
       serviceSelect.addEventListener("change", function () {
         var svc = serviceSelect.value;
         endpointField.style.display = svc === "custom" ? "" : "none";
+        if (svc === "custom" && !endpointInput.value) { endpointInput.value = ENDPOINT_PRESETS.ollama; syncEndpointPreset(); }
         modelInput.value = DEFAULT_MODELS[svc] || "";
         modelInput.placeholder = DEFAULT_MODELS[svc] || "モデル名を入力";
         rebuildModelOptions(svc, DEFAULT_MODELS[svc] || "");
+      });
+
+      endpointPreset.addEventListener("change", function () {
+        var url = ENDPOINT_PRESETS[endpointPreset.value];
+        if (url) endpointInput.value = url;
+      });
+
+      fetchModelsBtn.addEventListener("click", function () {
+        var svc = serviceSelect.value;
+        var key = apiKeyInput.value.trim() || settings.apiKey;
+        modelFetchStatus.textContent = "取得中…";
+        function parseList(res, extract) {
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error((data && data.error && data.error.message) || ("error " + res.status));
+            return extract(data);
+          });
+        }
+        var req;
+        if (svc === "gemini") {
+          req = fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models", { headers: { "x-goog-api-key": key } }, 20000).then(function (res) {
+            return parseList(res, function (data) {
+              return (data.models || []).filter(function (m) { return (m.supportedGenerationMethods || []).indexOf("generateContent") !== -1; }).map(function (m) { return String(m.name || "").replace(/^models\//, ""); }).filter(Boolean);
+            });
+          });
+        } else if (svc === "claude") {
+          req = fetchWithTimeout("https://api.anthropic.com/v1/models", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } }, 20000).then(function (res) {
+            return parseList(res, function (data) { return (data.data || []).map(function (m) { return m.id; }).filter(Boolean); });
+          });
+        } else {
+          var base = svc === "openai" ? "https://api.openai.com/v1" : endpointInput.value.trim();
+          if (!base) { modelFetchStatus.textContent = "先にエンドポイントURLを入れてね"; return; }
+          var headers = {};
+          if (key) headers["Authorization"] = "Bearer " + key;
+          req = fetchWithTimeout(base.replace(/\/+$/, "") + "/models", { headers: headers }, 20000).then(function (res) {
+            return parseList(res, function (data) { return (data.data || []).map(function (m) { return m.id; }).filter(Boolean); });
+          });
+        }
+        req.then(function (ids) {
+          if (!ids || !ids.length) throw new Error("モデルが0件だったよ");
+          settings.modelOptions = settings.modelOptions || {};
+          settings.modelOptions[svc] = ids;
+          rebuildModelOptions(svc, currentFormModel() || ids[0]);
+          modelFetchStatus.textContent = ids.length + "件のモデルを取得したよ";
+        }).catch(function (err) {
+          var msg = err && err.message ? String(err.message).slice(0, 80) : "不明なエラー";
+          modelFetchStatus.textContent = "取得できなかったよ（" + msg + "）";
+        });
       });
 
       modelSelect.addEventListener("change", syncModelInputVisibility);
@@ -1151,7 +1225,7 @@
         persistSettings();
         updateConnLabel();
         closeSettings();
-        replySource.textContent = settings.apiKey ? (SERVICE_NAMES[settings.service] + "に接続したよ。入力するとAIがお返事するにゃ") : "キーが未設定だよ。入力への返事はプールからになるにゃ";
+        replySource.textContent = (settings.apiKey || settings.service === "custom") ? (SERVICE_NAMES[settings.service] + "に接続したよ。入力するとAIがお返事するにゃ") : "キーが未設定だよ。入力への返事はプールからになるにゃ";
       });
 
       deleteKeyBtn.addEventListener("click", function () {
@@ -1272,9 +1346,11 @@
           messages.push({ role: recent[i].role, content: recent[i].text });
         }
         messages.push({ role: "user", content: userText });
+        var compatHeaders = { "Content-Type": "application/json" };
+        if (settings.apiKey) compatHeaders["Authorization"] = "Bearer " + settings.apiKey;
         return fetchWithTimeout(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + settings.apiKey },
+          headers: compatHeaders,
           body: JSON.stringify({ model: settings.model, messages: messages, temperature: 0.9, max_tokens: 300 })
         }, 25000).then(function (res) {
           return res.json().then(function (data) {
@@ -1287,10 +1363,36 @@
         });
       }
 
+      function callClaude(userText) {
+        var model = settings.model || DEFAULT_MODELS.claude;
+        var messages = [];
+        var recent = history.slice(-MAX_TURNS * 2);
+        for (var i = 0; i < recent.length; i++) {
+          messages.push({ role: recent[i].role, content: recent[i].text });
+        }
+        messages.push({ role: "user", content: userText });
+        return fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": settings.apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+          body: JSON.stringify({ model: model, max_tokens: 500, temperature: 0.9, system: PERSONA, messages: messages })
+        }, 25000).then(function (res) {
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error((data && data.error && data.error.message) || ("claude-error " + res.status));
+            var blocks = (data && data.content) || [];
+            var text = "";
+            for (var b = 0; b < blocks.length; b++) { if (blocks[b].type === "text" && blocks[b].text) text += blocks[b].text; }
+            text = text.trim();
+            if (!text) throw new Error("empty reply");
+            return text;
+          });
+        });
+      }
+
       function callAI(userText) {
         if (settings.service === "gemini") return callGemini(userText);
+        if (settings.service === "claude") return callClaude(userText);
         if (settings.service === "openai") return callOpenAICompatible(userText, "https://api.openai.com/v1");
-        return callOpenAICompatible(userText, settings.endpoint);
+        return callOpenAICompatible(userText, settings.endpoint || ENDPOINT_PRESETS.ollama);
       }
 
       function cleanReply(text) {
@@ -1313,12 +1415,8 @@
           if (speaking) return;
           triggerJump();
 
-          if (!settings.apiKey) {
+          if (!settings.apiKey && settings.service !== "custom") {
             fallbackSpeak("AI未接続（設定からキーを入れてね）");
-            return;
-          }
-          if (settings.service === "custom" && !settings.endpoint) {
-            fallbackSpeak("カスタムのURLが未設定だよ");
             return;
           }
 
