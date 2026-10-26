@@ -1433,18 +1433,45 @@
         messages.push({ role: "user", content: userText });
         var compatHeaders = { "Content-Type": "application/json" };
         if (settings.apiKey) compatHeaders["Authorization"] = "Bearer " + settings.apiKey;
-        return fetchWithTimeout(url, {
-          method: "POST",
-          headers: compatHeaders,
-          body: JSON.stringify({ model: settings.model, messages: messages, temperature: 0.9, max_tokens: 300 })
-        }, 25000).then(function (res) {
-          return res.json().then(function (data) {
-            if (!res.ok) throw new Error((data && data.error && (data.error.message || data.error)) || ("openai-error " + res.status));
-            var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-            text = (text || "").trim();
-            if (!text) throw new Error("empty");
-            return text;
+        function doCall(body) {
+          return fetchWithTimeout(url, {
+            method: "POST",
+            headers: compatHeaders,
+            body: JSON.stringify(body)
+          }, 25000).then(function (res) {
+            return res.json().then(function (data) {
+              if (!res.ok) throw new Error((data && data.error && (data.error.message || data.error)) || ("openai-error " + res.status));
+              var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+              text = (text || "").trim();
+              if (!text) throw new Error("empty");
+              return text;
+            });
           });
+        }
+        // Newer OpenAI models (o-series, gpt-5 family) reject "max_tokens"
+        // and a non-default temperature; older ones want "max_tokens".
+        // Start with the modern shape and flip once if the error says so.
+        var modelName = settings.model || "";
+        var reasoning = /^(o[0-9]|gpt-5)/i.test(modelName) && !/chat/i.test(modelName);
+        var body = { model: settings.model, messages: messages };
+        if (!reasoning) body.temperature = 0.9;
+        body.max_completion_tokens = reasoning ? 1000 : 400;
+        return doCall(body).catch(function (err) {
+          var msg = err && err.message ? String(err.message) : "";
+          var retry = null;
+          if (/max_completion_tokens/.test(msg) && body.max_completion_tokens !== undefined) {
+            retry = { model: body.model, messages: body.messages, max_tokens: 400 };
+            if (body.temperature !== undefined) retry.temperature = body.temperature;
+          } else if (/max_tokens/.test(msg) && body.max_tokens !== undefined) {
+            retry = { model: body.model, messages: body.messages, max_completion_tokens: 1000 };
+            if (body.temperature !== undefined) retry.temperature = body.temperature;
+          } else if (/temperature/.test(msg) && body.temperature !== undefined) {
+            retry = { model: body.model, messages: body.messages };
+            if (body.max_completion_tokens !== undefined) retry.max_completion_tokens = body.max_completion_tokens;
+            if (body.max_tokens !== undefined) retry.max_tokens = body.max_tokens;
+          }
+          if (retry) return doCall(retry);
+          throw err;
         });
       }
 
