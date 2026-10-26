@@ -319,10 +319,27 @@
         </div>
 
         <div class="field">
-          <label for="apiKeyInput">APIキー</label>
-          <input type="password" id="apiKeyInput" placeholder="キーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <label>APIキー（サービスごと）</label>
+          <div style="display:grid; gap:8px; margin-top:4px;">
+            <div>
+              <label for="keyGeminiInput" style="font-size:0.85em;">Geminiのキー</label>
+              <input type="password" id="keyGeminiInput" placeholder="Geminiのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label for="keyOpenaiInput" style="font-size:0.85em;">OpenAIのキー</label>
+              <input type="password" id="keyOpenaiInput" placeholder="OpenAIのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label for="keyClaudeInput" style="font-size:0.85em;">Claudeのキー</label>
+              <input type="password" id="keyClaudeInput" placeholder="Claudeのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label for="keyCustomInput" style="font-size:0.85em;">カスタム用キー（Ollamaは空でOK）</label>
+              <input type="password" id="keyCustomInput" placeholder="カスタム用のキーを入力（任意）" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+          </div>
           <div class="key-status" id="keyStatus"></div>
-          <p class="help">キーはサービスごとに別々に保存されます。設定済みのキーは ● で隠してこの欄に表示されます。書き換えて保存すると差し替わり、空欄にして保存すると、そのサービスのキーは消えます。</p>
+          <p class="help">キーはサービスごとに別々に保存されます。設定済みのキーは ● で隠して表示されます。書き換えて保存すると差し替わり、空欄にして保存すると、そのサービスのキーは消えます。</p>
         </div>
 
         <div class="field">
@@ -390,7 +407,7 @@
 
         <div class="panel-actions">
           <button type="button" class="save-btn" id="saveSettingsBtn">保存して閉じる</button>
-          <button type="button" class="delete-btn" id="deleteKeyBtn">キーを消す</button>
+          <button type="button" class="delete-btn" id="deleteKeyBtn">すべてのキーを消す</button>
         </div>
 
         <p class="about-link-row"><a href="about/">このページについて（使い方・注意）→</a></p>
@@ -544,7 +561,7 @@
       // Settings state (in memory). Key lives only here + chosen browser storage.
       var settings = { service: "gemini", apiKey: "", apiKeys: {}, model: "gemini-2.5-flash", endpoint: "", saveMode: "session", modelOptions: {},
         voiceEngine: "browser", browserVoiceURI: "", voiceRate: 1.1, voicePitch: 1.15,
-        localEnginePreset: "aivis", localVoiceUrl: "http://127.0.0.1:10101", localSpeakerId: "", localSpeakerLabel: "", localSpeed: 1.1 };
+        localEnginePreset: "aivis", localVoiceUrl: "http://127.0.0.1:10101", localSpeakerId: "", localSpeakerLabel: "", localSpeed: 1.1, localSpeakers: [] };
 
       function loadSettings() {
         var raw = null;
@@ -573,6 +590,7 @@
               if (typeof parsed.localSpeakerLabel === "string") settings.localSpeakerLabel = parsed.localSpeakerLabel;
               if (typeof parsed.localSpeed === "number") settings.localSpeed = parsed.localSpeed;
               if (parsed.modelOptions && typeof parsed.modelOptions === "object") settings.modelOptions = parsed.modelOptions;
+              if (Array.isArray(parsed.localSpeakers)) settings.localSpeakers = parsed.localSpeakers.filter(function (s) { return s && s.id !== undefined && s.label; });
             }
           } catch (e) {}
         }
@@ -583,7 +601,7 @@
       function persistSettings() {
         var payload = JSON.stringify({ service: settings.service, apiKey: settings.apiKey, apiKeys: settings.apiKeys, model: settings.model, endpoint: settings.endpoint, saveMode: settings.saveMode, modelOptions: settings.modelOptions,
           voiceEngine: settings.voiceEngine, browserVoiceURI: settings.browserVoiceURI, voiceRate: settings.voiceRate, voicePitch: settings.voicePitch,
-          localEnginePreset: settings.localEnginePreset, localVoiceUrl: settings.localVoiceUrl, localSpeakerId: settings.localSpeakerId, localSpeakerLabel: settings.localSpeakerLabel, localSpeed: settings.localSpeed });
+          localEnginePreset: settings.localEnginePreset, localVoiceUrl: settings.localVoiceUrl, localSpeakerId: settings.localSpeakerId, localSpeakerLabel: settings.localSpeakerLabel, localSpeed: settings.localSpeed, localSpeakers: settings.localSpeakers });
         try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) {}
         try { window.sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
         try {
@@ -652,14 +670,19 @@
       var endpointPreset = document.getElementById("endpointPreset");
       var fetchModelsBtn = document.getElementById("fetchModelsBtn");
       var modelFetchStatus = document.getElementById("modelFetchStatus");
-      var formService = null;
-      var formKeys = {};
       function refreshKeyStatus() {
-        keyStatus.textContent = formKeys[formService] ? "キーは設定済みだよ（隠して表示中）" : "このサービスのキーはまだ未設定だよ";
+        var setNames = [];
+        for (var kn in SERVICE_NAMES) { if (settings.apiKeys[kn]) setNames.push(SERVICE_NAMES[kn]); }
+        keyStatus.textContent = setNames.length ? ("設定済みのキー: " + setNames.join(" / ")) : "キーはまだ未設定だよ";
       }
       var modelInput = document.getElementById("modelInput");
       var modelSelect = document.getElementById("modelSelect");
-      var apiKeyInput = document.getElementById("apiKeyInput");
+      var keyInputs = {
+        gemini: document.getElementById("keyGeminiInput"),
+        openai: document.getElementById("keyOpenaiInput"),
+        claude: document.getElementById("keyClaudeInput"),
+        custom: document.getElementById("keyCustomInput")
+      };
       var keyStatus = document.getElementById("keyStatus");
       var saveModeSelect = document.getElementById("saveModeSelect");
       var saveSettingsBtn = document.getElementById("saveSettingsBtn");
@@ -1061,6 +1084,16 @@
 
       function resetLocalSpeakerOptions() {
         localSpeakerSelect.innerHTML = "";
+        if (settings.localSpeakers && settings.localSpeakers.length) {
+          settings.localSpeakers.forEach(function (s) {
+            var o = document.createElement("option");
+            o.value = s.id;
+            o.textContent = s.label;
+            localSpeakerSelect.appendChild(o);
+          });
+          if (settings.localSpeakerId !== "" && settings.localSpeakerId !== null && settings.localSpeakerId !== undefined) localSpeakerSelect.value = String(settings.localSpeakerId);
+          return;
+        }
         var opt = document.createElement("option");
         if (settings.localSpeakerId !== "" && settings.localSpeakerId !== null && settings.localSpeakerId !== undefined) {
           opt.value = settings.localSpeakerId;
@@ -1090,18 +1123,22 @@
         }).then(function (list) {
           localSpeakerSelect.innerHTML = "";
           var count = 0;
+          var fetchedList = [];
           (list || []).forEach(function (sp) {
             (sp.styles || []).forEach(function (st) {
               var opt = document.createElement("option");
               opt.value = st.id;
               opt.textContent = sp.name + " / " + st.name;
               localSpeakerSelect.appendChild(opt);
+              fetchedList.push({ id: String(st.id), label: sp.name + " / " + st.name });
               count++;
             });
           });
           if (!count) throw new Error("empty");
+          settings.localSpeakers = fetchedList;
+          persistSettings();
           if (settings.localSpeakerId !== "" && settings.localSpeakerId !== null) localSpeakerSelect.value = settings.localSpeakerId;
-          speakersStatus.textContent = count + "件の声が見つかったよ。選んだら「保存して閉じる」を押してね";
+          speakersStatus.textContent = count + "件の声が見つかったよ（リストを保存したよ）。選んだら「保存して閉じる」を押してね";
         }).catch(function (err) {
           var msg = err && err.message ? String(err.message).slice(0, 80) : "不明なエラー";
           speakersStatus.textContent = "繋がらなかったよ（" + msg + "）。エンジンが起動しているか、URLとブラウザの許可を確認してね";
@@ -1123,10 +1160,10 @@
         modelInput.value = settings.model || "";
         modelInput.placeholder = DEFAULT_MODELS[settings.service] || "モデル名を入力";
         rebuildModelOptions(settings.service, settings.model || "");
-        formKeys = {};
-        for (var fk in settings.apiKeys) formKeys[fk] = settings.apiKeys[fk];
-        formService = settings.service;
-        apiKeyInput.value = formKeys[formService] || "";
+        keyInputs.gemini.value = settings.apiKeys.gemini || "";
+        keyInputs.openai.value = settings.apiKeys.openai || "";
+        keyInputs.claude.value = settings.apiKeys.claude || "";
+        keyInputs.custom.value = settings.apiKeys.custom || "";
         saveModeSelect.value = settings.saveMode || "session";
         refreshKeyStatus();
         voiceEngineSelect.value = settings.voiceEngine || "browser";
@@ -1138,7 +1175,7 @@
         localVoiceUrlInput.value = settings.localVoiceUrl || "";
         localSpeedRange.value = settings.localSpeed;
         resetLocalSpeakerOptions();
-        speakersStatus.textContent = "";
+        speakersStatus.textContent = (settings.localSpeakers && settings.localSpeakers.length) ? ("保存済みの声リスト（" + settings.localSpeakers.length + "件）を読み込んだよ") : "";
         updateRangeLabels();
         syncVoiceFieldsVisibility();
       }
@@ -1149,7 +1186,10 @@
       }
       function closeSettings() {
         settingsOverlay.classList.remove("is-open");
-        apiKeyInput.value = "";
+        keyInputs.gemini.value = "";
+        keyInputs.openai.value = "";
+        keyInputs.claude.value = "";
+        keyInputs.custom.value = "";
       }
 
       settingsBtn.addEventListener("click", openSettings);
@@ -1160,10 +1200,6 @@
 
       serviceSelect.addEventListener("change", function () {
         var svc = serviceSelect.value;
-        if (formService) formKeys[formService] = apiKeyInput.value.trim();
-        formService = svc;
-        apiKeyInput.value = formKeys[svc] || "";
-        refreshKeyStatus();
         endpointField.style.display = svc === "custom" ? "" : "none";
         if (svc === "custom" && !endpointInput.value) { endpointInput.value = ENDPOINT_PRESETS.ollama; syncEndpointPreset(); }
         modelInput.value = DEFAULT_MODELS[svc] || "";
@@ -1178,7 +1214,7 @@
 
       fetchModelsBtn.addEventListener("click", function () {
         var svc = serviceSelect.value;
-        var key = apiKeyInput.value.trim();
+        var key = (keyInputs[svc] && keyInputs[svc].value.trim()) || "";
         modelFetchStatus.textContent = "取得中…";
         function parseList(res, extract) {
           return res.json().then(function (data) {
@@ -1210,6 +1246,7 @@
           if (!ids || !ids.length) throw new Error("モデルが0件だったよ");
           settings.modelOptions = settings.modelOptions || {};
           settings.modelOptions[svc] = ids;
+          persistSettings();
           rebuildModelOptions(svc, currentFormModel() || ids[0]);
           modelFetchStatus.textContent = ids.length + "件のモデルを取得したよ";
         }).catch(function (err) {
@@ -1237,8 +1274,12 @@
           var selOpt = localSpeakerSelect.options[localSpeakerSelect.selectedIndex];
           settings.localSpeakerLabel = selOpt ? selOpt.textContent : "";
         }
-        formKeys[formService || settings.service] = apiKeyInput.value.trim();
-        settings.apiKeys = formKeys;
+        settings.apiKeys = {
+          gemini: keyInputs.gemini.value.trim(),
+          openai: keyInputs.openai.value.trim(),
+          claude: keyInputs.claude.value.trim(),
+          custom: keyInputs.custom.value.trim()
+        };
         settings.apiKey = settings.apiKeys[settings.service] || "";
         persistSettings();
         updateConnLabel();
@@ -1247,16 +1288,16 @@
       });
 
       deleteKeyBtn.addEventListener("click", function () {
-        apiKeyInput.value = "";
-        if (formService) formKeys[formService] = "";
-        if (formService && formService === settings.service) {
-          settings.apiKeys = formKeys;
-          settings.apiKey = "";
-        }
+        keyInputs.gemini.value = "";
+        keyInputs.openai.value = "";
+        keyInputs.claude.value = "";
+        keyInputs.custom.value = "";
+        settings.apiKeys = {};
+        settings.apiKey = "";
         clearStoredSettings();
-        // Keep non-secret preferences in the chosen storage without the key.
+        // Keep non-secret preferences in the chosen storage without the keys.
         persistSettings();
-        keyStatus.textContent = "このサービスのキーを消したよ";
+        keyStatus.textContent = "すべてのキーを消したよ";
         updateConnLabel();
       });
 
