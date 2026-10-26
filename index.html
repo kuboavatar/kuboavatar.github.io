@@ -1343,7 +1343,7 @@
           if (!base) { modelFetchStatus.textContent = "先にエンドポイントURLを入れてね"; return; }
           var headers = {};
           if (key) headers["Authorization"] = "Bearer " + key;
-          req = fetchWithTimeout(base.replace(/\/+$/, "") + "/models", { headers: headers }, 20000).then(function (res) {
+          req = fetchWithTimeout(base.replace(/\/+$/, "") + "/models", { headers: headers }, 60000).then(function (res) {
             return parseList(res, function (data) {
               var rows = data.data || [];
               if (/openrouter/i.test(base)) {
@@ -1529,11 +1529,13 @@
         var compatHeaders = { "Content-Type": "application/json" };
         if (settings.apiKey) compatHeaders["Authorization"] = "Bearer " + settings.apiKey;
         function doCall(body) {
+          // Local engines (Ollama etc.) may take a while to load a model
+          // into memory on the first call, so give custom endpoints 120s.
           return fetchWithTimeout(url, {
             method: "POST",
             headers: compatHeaders,
             body: JSON.stringify(body)
-          }, 25000).then(function (res) {
+          }, settings.service === "custom" ? 120000 : 25000).then(function (res) {
             return res.json().then(function (data) {
               if (!res.ok) throw new Error((data && data.error && (data.error.message || data.error)) || ("openai-error " + res.status));
               var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
