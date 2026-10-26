@@ -1045,8 +1045,9 @@
           if (!count) throw new Error("empty");
           if (settings.localSpeakerId !== "" && settings.localSpeakerId !== null) localSpeakerSelect.value = settings.localSpeakerId;
           speakersStatus.textContent = count + "件の声が見つかったよ。選んだら「保存して閉じる」を押してね";
-        }).catch(function () {
-          speakersStatus.textContent = "繋がらなかったよ。エンジンが起動しているか、URLとブラウザの許可を確認してね";
+        }).catch(function (err) {
+          var msg = err && err.message ? String(err.message).slice(0, 80) : "不明なエラー";
+          speakersStatus.textContent = "繋がらなかったよ（" + msg + "）。エンジンが起動しているか、URLとブラウザの許可を確認してね";
         });
       });
 
