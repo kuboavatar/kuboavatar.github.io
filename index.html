@@ -298,13 +298,17 @@
         <div class="field" id="endpointField" style="display:none">
           <label for="endpointPreset">接続先プリセット（カスタム用）</label>
           <select id="endpointPreset">
-            <option value="ollama">Ollama（ローカル）</option>
-            <option value="lmstudio">LM Studio（ローカル）</option>
+            <option value="ollama">Ollama（ローカル・無料）</option>
+            <option value="lmstudio">LM Studio（ローカル・無料）</option>
+            <option value="groq">Groq（無料枠）</option>
+            <option value="openrouter">OpenRouter（無料モデルあり）</option>
+            <option value="githubmodels">GitHub Models（無料）</option>
+            <option value="cerebras">Cerebras（無料枠）</option>
             <option value="customurl">カスタムURL（自由に書く）</option>
           </select>
           <label for="endpointInput" style="margin-top:10px;">エンドポイントURL（カスタム用）</label>
           <input type="url" id="endpointInput" placeholder="https://example.com/v1" autocomplete="off" spellcheck="false" />
-          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。Ollama は http://localhost:11434/v1 で、APIキーは空でOKです。繋がらない時は、Ollama の環境変数 OLLAMA_ORIGINS に https://kuboavatar.github.io を許可して、Ollamaを再起動してね。</p>
+          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。Ollama は http://localhost:11434/v1 で、APIキーは空でOKです。繋がらない時は、Ollama の環境変数 OLLAMA_ORIGINS に https://kuboavatar.github.io を許可して、Ollamaを再起動してね。無料キーの入手先： Groq は console.groq.com、OpenRouter は openrouter.ai、GitHub Models は GitHub のトークン、Cerebras は cloud.cerebras.ai です。「カスタム用キー」の欄に入れてね。</p>
         </div>
 
         <div class="field">
@@ -555,7 +559,7 @@
         custom: []
       };
       var SERVICE_NAMES = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", custom: "カスタム" };
-      var ENDPOINT_PRESETS = { ollama: "http://localhost:11434/v1", lmstudio: "http://localhost:1234/v1" };
+      var ENDPOINT_PRESETS = { ollama: "http://localhost:11434/v1", lmstudio: "http://localhost:1234/v1", groq: "https://api.groq.com/openai/v1", openrouter: "https://openrouter.ai/api/v1", githubmodels: "https://models.github.ai/inference", cerebras: "https://api.cerebras.ai/v1" };
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
       // Settings state (in memory). Key lives only here + chosen browser storage.
@@ -1146,9 +1150,9 @@
       });
 
       function syncEndpointPreset() {
-        if (endpointInput.value === ENDPOINT_PRESETS.ollama) endpointPreset.value = "ollama";
-        else if (endpointInput.value === ENDPOINT_PRESETS.lmstudio) endpointPreset.value = "lmstudio";
-        else endpointPreset.value = "customurl";
+        var matched = "customurl";
+        for (var k in ENDPOINT_PRESETS) { if (endpointInput.value === ENDPOINT_PRESETS[k]) matched = k; }
+        endpointPreset.value = matched;
       }
 
       function syncSettingsForm() {
