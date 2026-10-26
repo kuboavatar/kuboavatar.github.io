@@ -338,8 +338,24 @@
               <input type="password" id="keyClaudeInput" placeholder="Claudeのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
-              <label for="keyCustomInput" style="font-size:0.85em;">カスタム用キー（Ollamaは空でOK）</label>
-              <input type="password" id="keyCustomInput" placeholder="カスタム用のキーを入力（任意）" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <label for="keyGroqInput" style="font-size:0.85em;">Groqのキー</label>
+              <input type="password" id="keyGroqInput" placeholder="Groqのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label for="keyOpenrouterInput" style="font-size:0.85em;">OpenRouterのキー</label>
+              <input type="password" id="keyOpenrouterInput" placeholder="OpenRouterのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label for="keyGithubmodelsInput" style="font-size:0.85em;">GitHub Modelsのトークン</label>
+              <input type="password" id="keyGithubmodelsInput" placeholder="GitHubのトークンを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label for="keyCerebrasInput" style="font-size:0.85em;">Cerebrasのキー</label>
+              <input type="password" id="keyCerebrasInput" placeholder="Cerebrasのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label for="keyCustomInput" style="font-size:0.85em;">その他カスタム用キー（Ollama／LM Studioは空でOK）</label>
+              <input type="password" id="keyCustomInput" placeholder="その他のカスタム用のキーを入力（任意）" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
           </div>
           <div class="key-status" id="keyStatus"></div>
@@ -598,7 +614,7 @@
             }
           } catch (e) {}
         }
-        settings.apiKey = (settings.apiKeys && settings.apiKeys[settings.service]) || "";
+        settings.apiKey = resolveActiveKey();
         if (!settings.model) settings.model = DEFAULT_MODELS[settings.service] || "";
       }
 
@@ -676,7 +692,7 @@
       var modelFetchStatus = document.getElementById("modelFetchStatus");
       function refreshKeyStatus() {
         var setNames = [];
-        for (var kn in SERVICE_NAMES) { if (settings.apiKeys[kn]) setNames.push(SERVICE_NAMES[kn]); }
+        for (var kn in KEY_LABELS) { if (settings.apiKeys[kn]) setNames.push(KEY_LABELS[kn]); }
         keyStatus.textContent = setNames.length ? ("設定済みのキー: " + setNames.join(" / ")) : "キーはまだ未設定だよ";
       }
       var modelInput = document.getElementById("modelInput");
@@ -685,8 +701,22 @@
         gemini: document.getElementById("keyGeminiInput"),
         openai: document.getElementById("keyOpenaiInput"),
         claude: document.getElementById("keyClaudeInput"),
+        groq: document.getElementById("keyGroqInput"),
+        openrouter: document.getElementById("keyOpenrouterInput"),
+        githubmodels: document.getElementById("keyGithubmodelsInput"),
+        cerebras: document.getElementById("keyCerebrasInput"),
         custom: document.getElementById("keyCustomInput")
       };
+      var KEY_LABELS = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", groq: "Groq", openrouter: "OpenRouter", githubmodels: "GitHub Models", cerebras: "Cerebras", custom: "その他カスタム" };
+      function presetNameForEndpoint(endpoint) {
+        for (var k in ENDPOINT_PRESETS) { if (endpoint === ENDPOINT_PRESETS[k]) return k; }
+        return "custom";
+      }
+      function resolveActiveKey() {
+        if (settings.service !== "custom") return settings.apiKeys[settings.service] || "";
+        var p = presetNameForEndpoint(settings.endpoint || "");
+        return settings.apiKeys[p] || "";
+      }
       var keyStatus = document.getElementById("keyStatus");
       var saveModeSelect = document.getElementById("saveModeSelect");
       var saveSettingsBtn = document.getElementById("saveSettingsBtn");
@@ -1164,10 +1194,7 @@
         modelInput.value = settings.model || "";
         modelInput.placeholder = DEFAULT_MODELS[settings.service] || "モデル名を入力";
         rebuildModelOptions(settings.service, settings.model || "");
-        keyInputs.gemini.value = settings.apiKeys.gemini || "";
-        keyInputs.openai.value = settings.apiKeys.openai || "";
-        keyInputs.claude.value = settings.apiKeys.claude || "";
-        keyInputs.custom.value = settings.apiKeys.custom || "";
+        for (var ki in keyInputs) keyInputs[ki].value = settings.apiKeys[ki] || "";
         saveModeSelect.value = settings.saveMode || "session";
         refreshKeyStatus();
         voiceEngineSelect.value = settings.voiceEngine || "browser";
@@ -1190,10 +1217,7 @@
       }
       function closeSettings() {
         settingsOverlay.classList.remove("is-open");
-        keyInputs.gemini.value = "";
-        keyInputs.openai.value = "";
-        keyInputs.claude.value = "";
-        keyInputs.custom.value = "";
+        for (var ki in keyInputs) keyInputs[ki].value = "";
       }
 
       settingsBtn.addEventListener("click", openSettings);
@@ -1218,7 +1242,13 @@
 
       fetchModelsBtn.addEventListener("click", function () {
         var svc = serviceSelect.value;
-        var key = (keyInputs[svc] && keyInputs[svc].value.trim()) || "";
+        var key = "";
+        if (svc === "custom") {
+          var pk = endpointPreset.value === "customurl" ? "custom" : endpointPreset.value;
+          key = (keyInputs[pk] && keyInputs[pk].value.trim()) || "";
+        } else {
+          key = (keyInputs[svc] && keyInputs[svc].value.trim()) || "";
+        }
         modelFetchStatus.textContent = "取得中…";
         function parseList(res, extract) {
           return res.json().then(function (data) {
@@ -1301,13 +1331,10 @@
           var selOpt = localSpeakerSelect.options[localSpeakerSelect.selectedIndex];
           settings.localSpeakerLabel = selOpt ? selOpt.textContent : "";
         }
-        settings.apiKeys = {
-          gemini: keyInputs.gemini.value.trim(),
-          openai: keyInputs.openai.value.trim(),
-          claude: keyInputs.claude.value.trim(),
-          custom: keyInputs.custom.value.trim()
-        };
-        settings.apiKey = settings.apiKeys[settings.service] || "";
+        var newKeys = {};
+        for (var ki2 in keyInputs) newKeys[ki2] = keyInputs[ki2].value.trim();
+        settings.apiKeys = newKeys;
+        settings.apiKey = resolveActiveKey();
         persistSettings();
         updateConnLabel();
         closeSettings();
@@ -1315,10 +1342,7 @@
       });
 
       deleteKeyBtn.addEventListener("click", function () {
-        keyInputs.gemini.value = "";
-        keyInputs.openai.value = "";
-        keyInputs.claude.value = "";
-        keyInputs.custom.value = "";
+        for (var ki in keyInputs) keyInputs[ki].value = "";
         settings.apiKeys = {};
         settings.apiKey = "";
         clearStoredSettings();
