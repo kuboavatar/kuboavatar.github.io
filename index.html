@@ -496,6 +496,25 @@
         "また明日もここにいる。手紙がなくても、タップがなくても。"
       ];
 
+      var FALLBACK_PHRASES = [
+        "あれっ、頭の向こうと電話が繋がらないみたい。今は粉の勘でお返事するにゃ！",
+        "頭脳への回線、ただいま不通だにゃ。代わりに粉センサーで答えるよ！",
+        "向こうの頭が留守みたい。置き手紙代わりに、粉のストックからお返事にゃ。",
+        "繋がらなかった…。でも大丈夫、粉は年中無休だにゃ！",
+        "頭のプラグ、抜けてたっぽい。今のは自前の粉パワーで喋ってるにゃ。",
+        "向こう側、混み合ってるのかな。こっちの在庫セリフで乗り切るにゃ！",
+        "もしもーし、頭？…出ないね。じゃあ粉の直感でいくにゃ！",
+        "回線の向こうは雨らしい。こっちは粉で快晴だにゃ、お返事どうぞ。",
+        "頭脳はただいま配達中みたい。先に粉の試食セリフでつなぐにゃ。",
+        "ピピッ、接続失敗。でも粉の在庫はたっぷりあるにゃ、心配なし！",
+        "向こうの頭、今日はお休みかも。粉の当番が代わりにお返事するにゃ。",
+        "糸電話の糸が切れちゃったみたい。声は大きいから届くはず、粉のお返事にゃ！",
+        "頭への扉、鍵がかかってた。合鍵の粉セリフで失礼するにゃ。",
+        "接続はダメだったけど、粉の勘は冴えてるにゃ。多分ね。",
+        "向こうと話せなかった…。しょんぼりは一瞬だけ、粉は元気にお返事にゃ！",
+        "頭脳回線、工事中だって。迂回路の粉ロードからお返事が来たにゃ。"
+      ];
+
       var GREETING = "やっほー、くぼ。きなこAI接続版だにゃ。タップすると跳ねておしゃべりするよ。右上の設定からAIサービスを繋ぐと、入力への返事がAI生成になるにゃ。";
 
       var PERSONA = "あなたは「きなこ」として振る舞ってください。明るく弾む相棒のような口調で、短く自然な日本語で答えてください。語尾に「にゃ」を効果的な所だけ時々使ってください。読み上げられる前提なので、Markdown記法、URL、絵文字は使わないでください。1〜3文程度で簡潔に、温かく答えてください。";
@@ -641,6 +660,7 @@
       var lineIndex = 0;
       var tapBag = [];
       var lastTapIndex = -1;
+      var fallbackBag = [];
       var speakTimer = null;
       var fallbackTimer = null;
       var voiceSync = false;
@@ -881,7 +901,16 @@
 
       function fallbackSpeak(reasonLabel) {
         replySource.textContent = reasonLabel;
-        drawPhraseAndSpeak();
+        if (fallbackBag.length === 0) {
+          fallbackBag = FALLBACK_PHRASES.map(function (_, i) { return i; });
+          for (var i = fallbackBag.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var t = fallbackBag[i]; fallbackBag[i] = fallbackBag[j]; fallbackBag[j] = t;
+          }
+        }
+        var index = fallbackBag.shift();
+        if (index === undefined) index = 0;
+        speak(FALLBACK_PHRASES[index] || FALLBACK_PHRASES[0]);
       }
 
       figureBtn.addEventListener("click", function () {
@@ -1267,11 +1296,11 @@
           triggerJump();
 
           if (!settings.apiKey) {
-            fallbackSpeak("プールからお返事したよ（AI未接続・設定からキーを入れてね）");
+            fallbackSpeak("AI未接続（設定からキーを入れてね）");
             return;
           }
           if (settings.service === "custom" && !settings.endpoint) {
-            fallbackSpeak("プールからお返事したよ（カスタムのURLが未設定だよ）");
+            fallbackSpeak("カスタムのURLが未設定だよ");
             return;
           }
 
@@ -1293,7 +1322,7 @@
             thinking = false;
             hint.textContent = "タップすると跳ねるにゃ";
             var msg = err && err.message ? String(err.message).slice(0, 240) : "不明なエラー";
-            fallbackSpeak("プールからお返事したよ（AIエラー: " + msg + "）");
+            fallbackSpeak("AIエラー: " + msg);
           });
         }, 900);
       });
