@@ -327,35 +327,35 @@
           <div style="display:grid; gap:8px; margin-top:4px;">
             <div>
               <label for="keyGeminiInput" style="font-size:0.85em;">Geminiのキー</label>
-              <input type="password" id="keyGeminiInput" placeholder="Geminiのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyGeminiInput" placeholder="Geminiのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyOpenaiInput" style="font-size:0.85em;">OpenAIのキー</label>
-              <input type="password" id="keyOpenaiInput" placeholder="OpenAIのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyOpenaiInput" placeholder="OpenAIのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyClaudeInput" style="font-size:0.85em;">Claudeのキー</label>
-              <input type="password" id="keyClaudeInput" placeholder="Claudeのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyClaudeInput" placeholder="Claudeのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyGroqInput" style="font-size:0.85em;">Groqのキー</label>
-              <input type="password" id="keyGroqInput" placeholder="Groqのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyGroqInput" placeholder="Groqのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyOpenrouterInput" style="font-size:0.85em;">OpenRouterのキー</label>
-              <input type="password" id="keyOpenrouterInput" placeholder="OpenRouterのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyOpenrouterInput" placeholder="OpenRouterのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyGithubmodelsInput" style="font-size:0.85em;">GitHub Modelsのトークン</label>
-              <input type="password" id="keyGithubmodelsInput" placeholder="GitHubのトークンを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyGithubmodelsInput" placeholder="GitHubのトークンを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyCerebrasInput" style="font-size:0.85em;">Cerebrasのキー</label>
-              <input type="password" id="keyCerebrasInput" placeholder="Cerebrasのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyCerebrasInput" placeholder="Cerebrasのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyCustomInput" style="font-size:0.85em;">その他カスタム用キー（Ollama／LM Studioは空でOK）</label>
-              <input type="password" id="keyCustomInput" placeholder="その他のカスタム用のキーを入力（任意）" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyCustomInput" placeholder="その他のカスタム用のキーを入力（任意）" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
           </div>
           <div class="key-status" id="keyStatus"></div>
@@ -717,6 +717,15 @@
         var p = presetNameForEndpoint(settings.endpoint || "");
         return settings.apiKeys[p] || "";
       }
+      // Key fields are text inputs masked with CSS on purpose: real
+      // password fields make browsers (Firefox especially) offer to save
+      // "site credentials", pairing a nearby text field as the username.
+      // If CSS masking is unavailable, fall back to password fields.
+      (function () {
+        var maskingOk = false;
+        try { maskingOk = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security: disc")); } catch (e) {}
+        if (!maskingOk) { for (var ki in keyInputs) keyInputs[ki].type = "password"; }
+      })();
       var keyStatus = document.getElementById("keyStatus");
       var saveModeSelect = document.getElementById("saveModeSelect");
       var saveSettingsBtn = document.getElementById("saveSettingsBtn");
