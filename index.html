@@ -655,8 +655,9 @@
         var segs = sentences.length > 0 ? sentences : [text];
         for (var k = 0; k < segs.length; k++) {
           var rest = segs[k];
-          while (rest.length > 24) {
+          while (rest.length > 30) {
             var idx = findCut(rest);
+            if (rest.length - idx < 8) idx = rest.length;
             lines.push(rest.slice(0, idx));
             rest = rest.slice(idx);
           }
@@ -665,24 +666,27 @@
         return lines.length > 0 ? lines : [text];
       }
 
-      // Choose a natural break point for a long line: aim for ~24 chars but
-      // allow overflowing to ~36 to land on a phrase boundary (a comma
-      // first, then a particle). As a last resort cut at 24, taking care
-      // not to split an alphanumeric run or a small-kana pair.
+      // Choose a natural break point for a long line. Length is secondary:
+      // lines may grow to ~64 chars when that is what a good phrase
+      // boundary takes. Candidates are scored by distance from ~40 chars,
+      // with commas and strong particles (は・が・を・も・て・で・し)
+      // preferred over weak ones (に・へ・と・や). As a last resort cut at
+      // the target, taking care not to split an alphanumeric run or a
+      // small-kana pair.
       function findCut(rest) {
-        var TARGET = 24, MIN = 12, MAX = 36;
+        var TARGET = 40, MIN = 18, MAX = 64;
         var limit = Math.min(MAX, rest.length);
-        var i, d, best = -1, bestDist = 1e9;
+        var strong = "はがをもてでし";
+        var weak = "にへとや";
+        var i, best = -1, bestCost = 1e9;
         for (i = MIN; i < limit; i++) {
-          if (rest[i - 1] === "、") { d = Math.abs(i - TARGET); if (d < bestDist) { bestDist = d; best = i; } }
-        }
-        if (best !== -1) return best;
-        var particles = "はがをにへとやもで";
-        best = -1; bestDist = 1e9;
-        for (i = MIN; i < limit; i++) {
-          if (particles.indexOf(rest[i - 1]) !== -1 && !/^[、。！？…」）)]/.test(rest[i] || "")) {
-            d = Math.abs(i - TARGET); if (d < bestDist) { bestDist = d; best = i; }
-          }
+          var prev = rest[i - 1], next = rest[i] || "";
+          if (/^[、。！？…」）)]/.test(next)) continue;
+          var cost = -1;
+          if (prev === "、") cost = Math.abs(i - TARGET) - 10;
+          else if (strong.indexOf(prev) !== -1) cost = Math.abs(i - TARGET);
+          else if (weak.indexOf(prev) !== -1) cost = Math.abs(i - TARGET) + 7;
+          if (cost >= 0 && cost < bestCost) { bestCost = cost; best = i; }
         }
         if (best !== -1) return best;
         var cut = TARGET;
