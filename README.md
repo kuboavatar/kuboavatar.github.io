@@ -22,7 +22,7 @@
 
 ### カスタムの接続先プリセット
 
-- **Ollama（ローカル・無料）**：`http://127.0.0.1:11434/v1`。キーは不要です。初回はモデルの読み込みに時間がかかるため、応答の待ち時間は最大120秒にしています。繋がらない時は、環境変数 `OLLAMA_ORIGINS` に `https://kuboavatar.github.io` を許可して Ollama を再起動してください。
+- **Ollama（ローカル・無料）**：`http://127.0.0.1:11434/v1`。キーは不要です。初回はモデルの読み込みに時間がかかるため、応答の待ち時間は最大300秒にしています。繋がらない時は、環境変数 `OLLAMA_ORIGINS` に `https://kuboavatar.github.io` を許可して Ollama を再起動してください。
 - **LM Studio（ローカル・無料）**：`http://127.0.0.1:1234/v1`。キーは不要です。
 - **Groq（無料枠）**：`https://api.groq.com/openai/v1`。キーは console.groq.com で取得します。
 - **OpenRouter（無料モデルあり）**：`https://openrouter.ai/api/v1`。料金が0のモデルには、モデル一覧で「（無料）」と付いて先頭に並びます。

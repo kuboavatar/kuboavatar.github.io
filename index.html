@@ -1530,12 +1530,12 @@
         if (settings.apiKey) compatHeaders["Authorization"] = "Bearer " + settings.apiKey;
         function doCall(body) {
           // Local engines (Ollama etc.) may take a while to load a model
-          // into memory on the first call, so give custom endpoints 120s.
+          // into memory on the first call, so give custom endpoints 300s.
           return fetchWithTimeout(url, {
             method: "POST",
             headers: compatHeaders,
             body: JSON.stringify(body)
-          }, settings.service === "custom" ? 120000 : 25000).then(function (res) {
+          }, settings.service === "custom" ? 300000 : 25000).then(function (res) {
             return res.json().then(function (data) {
               if (!res.ok) throw new Error((data && data.error && (data.error.message || data.error)) || ("openai-error " + res.status));
               var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
