@@ -1222,24 +1222,47 @@
             return extract(data);
           });
         }
+        // OpenAI's /models returns everything (embeddings, image, audio,
+        // dated snapshots...). Slim it to chat models: one entry per family
+        // (the undated alias when there is one, else the newest snapshot),
+        // newest first.
+        function slimOpenAIModels(list) {
+          var exclude = /(embedding|dall-e|gpt-image|whisper|-tts|tts-|transcribe|moderation|search-preview|codex|computer-use|realtime|-audio|audio-|sora)/i;
+          var groups = {};
+          (list || []).forEach(function (m) {
+            var id = m && m.id;
+            if (!id) return;
+            if (!/^(gpt-|o[0-9]|chat-)/i.test(id)) return;
+            if (exclude.test(id)) return;
+            var base = id.replace(/-\d{4}-\d{2}-\d{2}$/, "").replace(/-\d{8}$/, "");
+            var cand = { id: id, created: m.created || 0, alias: id === base };
+            var cur = groups[base];
+            if (!cur || (cand.alias && !cur.alias) || (cand.alias === cur.alias && cand.created > cur.created)) groups[base] = cand;
+          });
+          return Object.keys(groups).map(function (k) { return groups[k]; }).sort(function (a, b) { return b.created - a.created; }).map(function (g) { return g.id; });
+        }
         var req;
         if (svc === "gemini") {
           req = fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models", { headers: { "x-goog-api-key": key } }, 20000).then(function (res) {
             return parseList(res, function (data) {
-              return (data.models || []).filter(function (m) { return (m.supportedGenerationMethods || []).indexOf("generateContent") !== -1; }).map(function (m) { return String(m.name || "").replace(/^models\//, ""); }).filter(Boolean);
+              return (data.models || []).filter(function (m) { return (m.supportedGenerationMethods || []).indexOf("generateContent") !== -1; }).map(function (m) { return String(m.name || "").replace(/^models\//, ""); }).filter(function (id) { return id && !/(embedding|-tts-|imagen)/i.test(id); });
             });
           });
         } else if (svc === "claude") {
           req = fetchWithTimeout("https://api.anthropic.com/v1/models", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } }, 20000).then(function (res) {
             return parseList(res, function (data) { return (data.data || []).map(function (m) { return m.id; }).filter(Boolean); });
           });
+        } else if (svc === "openai") {
+          req = fetchWithTimeout("https://api.openai.com/v1/models", { headers: key ? { "Authorization": "Bearer " + key } : {} }, 20000).then(function (res) {
+            return parseList(res, function (data) { return slimOpenAIModels(data.data || []); });
+          });
         } else {
-          var base = svc === "openai" ? "https://api.openai.com/v1" : endpointInput.value.trim();
+          var base = endpointInput.value.trim();
           if (!base) { modelFetchStatus.textContent = "先にエンドポイントURLを入れてね"; return; }
           var headers = {};
           if (key) headers["Authorization"] = "Bearer " + key;
           req = fetchWithTimeout(base.replace(/\/+$/, "") + "/models", { headers: headers }, 20000).then(function (res) {
-            return parseList(res, function (data) { return (data.data || []).map(function (m) { return m.id; }).filter(Boolean); });
+            return parseList(res, function (data) { return (data.data || []).map(function (m) { return m.id; }).filter(Boolean).sort(); });
           });
         }
         req.then(function (ids) {
