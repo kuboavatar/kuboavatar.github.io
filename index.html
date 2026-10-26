@@ -1344,7 +1344,7 @@
           contents.push({ role: recent[i].role === "assistant" ? "model" : "user", parts: [{ text: recent[i].text }] });
         }
         contents.push({ role: "user", parts: [{ text: userText }] });
-        var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: isGemma ? 1024 : 300 } };
+        var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: isGemma ? 1024 : 600 } };
         if (isGemma) {
           payload.generationConfig.thinkingConfig = { thinkingLevel: "minimal" };
           if (/^gemma-4/i.test(model)) {
@@ -1358,6 +1358,9 @@
           }
         } else {
           payload.system_instruction = { parts: [{ text: PERSONA }] };
+          // Gemini models think too, and their thought summaries can ride
+          // along in the reply. Ask the API not to return thoughts at all.
+          payload.generationConfig.thinkingConfig = { includeThoughts: false };
         }
         return fetchWithTimeout(url, {
           method: "POST",
@@ -1369,7 +1372,7 @@
             var cand = data && data.candidates && data.candidates[0];
             var parts = cand && cand.content && cand.content.parts;
             var text = "";
-            if (parts) { for (var p = 0; p < parts.length; p++) { if (parts[p].text && !parts[p].thought) text += parts[p].text; } }
+            if (parts) { for (var p = 0; p < parts.length; p++) { if (parts[p].text && !parts[p].thought && !/^\s*THOUGHT\s*:/i.test(parts[p].text)) text += parts[p].text; } }
             text = cleanReplyText(text);
             if (!text) throw new Error("empty reply" + (cand && cand.finishReason ? " (" + cand.finishReason + ")" : ""));
             return text;
@@ -1378,22 +1381,18 @@
       }
 
       function callGemini(userText) {
-        var model = settings.model || DEFAULT_MODELS.gemini;
-        if (!/^gemma/i.test(model)) return callGeminiNative(userText);
-        // Gemma goes through the native Gemini route first (the officially
-        // documented way to call Gemma on the Gemini API). If that fails,
-        // retry once through Google's OpenAI-compatible endpoint with the
-        // same key and model, and report both errors if both fail.
-        function ensureJapanese(text) {
-          // Gemma sometimes returns an English fragment of its own reasoning
-          // or a restated persona instead of the reply. Kinako always replies
-          // in Japanese, so a reply with no Japanese in it counts as a miss.
+        // Both Gemini and Gemma go through the native route first. Gemini
+        // models can leak a "THOUGHT:" summary and Gemma can return an
+        // English fragment of its reasoning, so every reply is validated;
+        // a bad reply retries once via Google's OpenAI-compatible endpoint.
+        function ensureSaneReply(text) {
+          if (/^\s*THOUGHT\s*:/i.test(text || "")) throw new Error("思考メモが混ざったよ");
           if (!/[ぁ-んァ-ヶ一-龠]/.test(text || "")) throw new Error("お返事が日本語じゃなかったよ");
           return text;
         }
-        return callGeminiNative(userText).then(ensureJapanese).catch(function (nativeErr) {
+        return callGeminiNative(userText).then(ensureSaneReply).catch(function (nativeErr) {
           return callOpenAICompatible(userText, "https://generativelanguage.googleapis.com/v1beta/openai").then(function (text) {
-            return ensureJapanese(cleanReplyText(text));
+            return ensureSaneReply(cleanReplyText(text));
           }, function (compatErr) {
             throw new Error("Gemini形式: " + (nativeErr && nativeErr.message ? nativeErr.message : "エラー") + " / OpenAI互換形式: " + (compatErr && compatErr.message ? compatErr.message : "エラー"));
           });
