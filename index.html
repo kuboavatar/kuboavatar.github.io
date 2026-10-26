@@ -317,6 +317,7 @@
           <input type="text" id="modelInput" placeholder="gemini-2.5-flash" autocomplete="off" spellcheck="false" style="display:none; margin-top:8px;" />
           <div style="margin-top:8px;">
             <button type="button" id="fetchModelsBtn" class="mini-btn">有効なモデル一覧を取得</button>
+            <button type="button" id="resetModelsBtn" class="mini-btn">プリセットに戻す</button>
             <span class="help" id="modelFetchStatus"></span>
           </div>
           <p class="help">「有効なモデル一覧を取得」を押すと、キーで使えるモデルをサービスから取り寄せてリストに入れます。「カスタム入力」を選ぶと、モデル名を自由に書けます。サービスを切り替えると、そのサービスの初期値に戻ります。</p>
@@ -727,6 +728,7 @@
       var endpointInput = document.getElementById("endpointInput");
       var endpointPreset = document.getElementById("endpointPreset");
       var fetchModelsBtn = document.getElementById("fetchModelsBtn");
+      var resetModelsBtn = document.getElementById("resetModelsBtn");
       var modelFetchStatus = document.getElementById("modelFetchStatus");
       function refreshKeyStatus() {
         var setNames = [];
@@ -1377,6 +1379,18 @@
           var msg = err && err.message ? String(err.message).slice(0, 80) : "不明なエラー";
           modelFetchStatus.textContent = "取得できなかったよ（" + msg + "）";
         });
+      });
+
+      resetModelsBtn.addEventListener("click", function () {
+        var svc = serviceSelect.value;
+        if (settings.modelOptions && settings.modelOptions[svc]) {
+          delete settings.modelOptions[svc];
+          persistSettings();
+          rebuildModelOptions(svc, currentFormModel());
+          modelFetchStatus.textContent = "プリセットのリストに戻したよ";
+        } else {
+          modelFetchStatus.textContent = "いまもプリセットのリストだよ";
+        }
       });
 
       modelSelect.addEventListener("change", syncModelInputVisibility);
