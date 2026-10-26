@@ -308,7 +308,7 @@
           </select>
           <label for="endpointInput" style="margin-top:10px;">エンドポイントURL（カスタム用）</label>
           <input type="url" id="endpointInput" placeholder="https://example.com/v1" autocomplete="off" spellcheck="false" />
-          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。Ollama は http://localhost:11434/v1 で、APIキーは空でOKです。繋がらない時は、Ollama の環境変数 OLLAMA_ORIGINS に https://kuboavatar.github.io を許可して、Ollamaを再起動してね。無料キーの入手先： Groq は console.groq.com、OpenRouter は openrouter.ai、GitHub Models は GitHub のトークン、Cerebras は cloud.cerebras.ai です。「カスタム用キー」の欄に入れてね。</p>
+          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。Ollama は http://127.0.0.1:11434/v1 で、APIキーは空でOKです。繋がらない時は、Ollama の環境変数 OLLAMA_ORIGINS に https://kuboavatar.github.io を許可して、Ollamaを再起動してね。無料キーの入手先： Groq は console.groq.com、OpenRouter は openrouter.ai、GitHub Models は GitHub のトークン、Cerebras は cloud.cerebras.ai です。「カスタム用キー」の欄に入れてね。</p>
         </div>
 
         <div class="field">
@@ -575,7 +575,7 @@
         custom: []
       };
       var SERVICE_NAMES = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", custom: "カスタム" };
-      var ENDPOINT_PRESETS = { ollama: "http://localhost:11434/v1", lmstudio: "http://localhost:1234/v1", groq: "https://api.groq.com/openai/v1", openrouter: "https://openrouter.ai/api/v1", githubmodels: "https://models.github.ai/inference", cerebras: "https://api.cerebras.ai/v1" };
+      var ENDPOINT_PRESETS = { ollama: "http://127.0.0.1:11434/v1", lmstudio: "http://127.0.0.1:1234/v1", groq: "https://api.groq.com/openai/v1", openrouter: "https://openrouter.ai/api/v1", githubmodels: "https://models.github.ai/inference", cerebras: "https://api.cerebras.ai/v1" };
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
       // Settings state (in memory). Key lives only here + chosen browser storage.
