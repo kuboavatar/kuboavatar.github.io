@@ -297,9 +297,10 @@
         </div>
 
         <div class="field">
-          <label for="modelInput">モデル名</label>
-          <input type="text" id="modelInput" placeholder="gemini-2.5-flash" autocomplete="off" spellcheck="false" />
-          <p class="help">自由に書き換えられます。サービスを切り替えると、そのサービスの初期値に戻ります。</p>
+          <label for="modelSelect">モデル</label>
+          <select id="modelSelect"></select>
+          <input type="text" id="modelInput" placeholder="gemini-2.5-flash" autocomplete="off" spellcheck="false" style="display:none; margin-top:8px;" />
+          <p class="help">リストから選べます。「カスタム入力」を選ぶと、モデル名を自由に書けます。サービスを切り替えると、そのサービスの初期値に戻ります。</p>
         </div>
 
         <div class="field">
@@ -442,6 +443,11 @@
       var PERSONA = "あなたは「きなこ」として振る舞ってください。明るく弾む相棒のような口調で、短く自然な日本語で答えてください。語尾に「にゃ」を効果的な所だけ時々使ってください。読み上げられる前提なので、Markdown記法、URL、絵文字は使わないでください。1〜3文程度で簡潔に、温かく答えてください。";
 
       var DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openai: "gpt-4o-mini", custom: "" };
+      var MODEL_PRESETS = {
+        gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemma-4-26b-a4b-it", "gemma-3-27b-it"],
+        openai: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"],
+        custom: []
+      };
       var SERVICE_NAMES = { gemini: "Gemini", openai: "OpenAI", custom: "カスタム" };
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
@@ -535,6 +541,7 @@
       var endpointField = document.getElementById("endpointField");
       var endpointInput = document.getElementById("endpointInput");
       var modelInput = document.getElementById("modelInput");
+      var modelSelect = document.getElementById("modelSelect");
       var apiKeyInput = document.getElementById("apiKeyInput");
       var keyStatus = document.getElementById("keyStatus");
       var saveModeSelect = document.getElementById("saveModeSelect");
@@ -757,12 +764,47 @@
       }
 
       // ---- Settings panel ----
+      function rebuildModelOptions(svc, current) {
+        var presets = MODEL_PRESETS[svc] || [];
+        modelSelect.innerHTML = "";
+        for (var i = 0; i < presets.length; i++) {
+          var opt = document.createElement("option");
+          opt.value = presets[i];
+          opt.textContent = presets[i];
+          modelSelect.appendChild(opt);
+        }
+        var customOpt = document.createElement("option");
+        customOpt.value = "__custom__";
+        customOpt.textContent = "カスタム入力（自由に書く）";
+        modelSelect.appendChild(customOpt);
+        if (svc === "custom") {
+          modelSelect.value = "__custom__";
+        } else if (current && presets.indexOf(current) !== -1) {
+          modelSelect.value = current;
+        } else if (current) {
+          modelSelect.value = "__custom__";
+        } else {
+          modelSelect.value = DEFAULT_MODELS[svc] || presets[0] || "__custom__";
+        }
+        syncModelInputVisibility();
+      }
+      function syncModelInputVisibility() {
+        var isCustom = modelSelect.value === "__custom__";
+        modelInput.style.display = isCustom ? "" : "none";
+        if (!isCustom) modelInput.value = modelSelect.value;
+      }
+      function currentFormModel() {
+        if (modelSelect.value === "__custom__") return modelInput.value.trim();
+        return modelSelect.value;
+      }
+
       function syncSettingsForm() {
         serviceSelect.value = settings.service;
         endpointField.style.display = settings.service === "custom" ? "" : "none";
         endpointInput.value = settings.endpoint || "";
         modelInput.value = settings.model || "";
         modelInput.placeholder = DEFAULT_MODELS[settings.service] || "モデル名を入力";
+        rebuildModelOptions(settings.service, settings.model || "");
         apiKeyInput.value = "";
         saveModeSelect.value = settings.saveMode || "session";
         keyStatus.textContent = settings.apiKey ? "キーは設定済みだよ（全文は表示しないよ）" : "キーはまだ未設定だよ";
@@ -788,12 +830,15 @@
         endpointField.style.display = svc === "custom" ? "" : "none";
         modelInput.value = DEFAULT_MODELS[svc] || "";
         modelInput.placeholder = DEFAULT_MODELS[svc] || "モデル名を入力";
+        rebuildModelOptions(svc, DEFAULT_MODELS[svc] || "");
       });
+
+      modelSelect.addEventListener("change", syncModelInputVisibility);
 
       saveSettingsBtn.addEventListener("click", function () {
         settings.service = serviceSelect.value;
         settings.endpoint = endpointInput.value.trim();
-        settings.model = modelInput.value.trim() || DEFAULT_MODELS[settings.service] || "";
+        settings.model = currentFormModel() || DEFAULT_MODELS[settings.service] || "";
         settings.saveMode = saveModeSelect.value;
         var newKey = apiKeyInput.value.trim();
         if (newKey) settings.apiKey = newKey;
@@ -830,30 +875,46 @@
         });
       }
 
+      function cleanReplyText(text) {
+        var t = (text || "").trim();
+        // Drop Gemma-style thought/channel blocks if they leak into the answer.
+        t = t.replace(/<\|channel>thought[\s\S]*?(<channel\|>|<\|channel>)/g, "");
+        t = t.replace(/<\|think>[\s\S]*?<\/think>/g, "");
+        return t.trim();
+      }
+
       function callGemini(userText) {
         var model = settings.model || DEFAULT_MODELS.gemini;
         var url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
+        // Gemma models on the Gemini API do not support system instructions,
+        // and their replies can include reasoning text. For Gemma, put the
+        // persona at the head of the first user message instead, and filter
+        // thought parts out of the reply.
+        var isGemma = /^gemma/i.test(model);
         var contents = [];
         var recent = history.slice(-MAX_TURNS * 2);
         for (var i = 0; i < recent.length; i++) {
           contents.push({ role: recent[i].role === "assistant" ? "model" : "user", parts: [{ text: recent[i].text }] });
         }
         contents.push({ role: "user", parts: [{ text: userText }] });
+        var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: 300 } };
+        if (isGemma) {
+          var instruction = "【指示】" + PERSONA + " 指示への言及や、考える過程は書かず、返事だけを書いてください。\n\n";
+          if (contents.length) contents[0].parts[0].text = instruction + contents[0].parts[0].text;
+        } else {
+          payload.system_instruction = { parts: [{ text: PERSONA }] };
+        }
         return fetchWithTimeout(url, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": settings.apiKey },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: PERSONA }] },
-            contents: contents,
-            generationConfig: { temperature: 0.9, maxOutputTokens: 300 }
-          })
+          body: JSON.stringify(payload)
         }, 25000).then(function (res) {
           return res.json().then(function (data) {
             if (!res.ok) throw new Error("gemini-error");
             var parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
             var text = "";
-            if (parts) { for (var p = 0; p < parts.length; p++) { if (parts[p].text) text += parts[p].text; } }
-            text = text.trim();
+            if (parts) { for (var p = 0; p < parts.length; p++) { if (parts[p].text && !parts[p].thought) text += parts[p].text; } }
+            text = cleanReplyText(text);
             if (!text) throw new Error("empty");
             return text;
           });
