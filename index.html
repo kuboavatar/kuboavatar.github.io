@@ -150,6 +150,9 @@
       }
       .key-status { font-size: 12px; font-weight: 600; color: var(--accent-strong); margin-top: 4px; min-height: 16px; }
       .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+      .about-link-row { text-align: center; margin: 16px 0 0; font-size: 13.5px; }
+      .about-link-row a { color: var(--accent-strong); font-weight: 700; text-decoration: none; }
+      .about-link-row a:hover { text-decoration: underline; }
       .save-btn {
         flex: 1; min-width: 140px; min-height: 50px; border: 0; border-radius: 999px;
         background: var(--accent-strong); color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
@@ -319,6 +322,8 @@
           <button type="button" class="save-btn" id="saveSettingsBtn">保存して閉じる</button>
           <button type="button" class="delete-btn" id="deleteKeyBtn">キーを消す</button>
         </div>
+
+        <p class="about-link-row"><a href="about/">このページについて（使い方・注意）→</a></p>
 
         <div class="honest-box">
           <strong>正直な明記：</strong>このページの頭脳は、選んだAIサービスのモデルが「きなこ役」を演じるものです。Museアプリ内の本物のきなこではありません。キーは端末のブラウザ内にだけ保存され、サーバーに送られることはありません。キーが外に出るのは、選んだサービスの公式APIへ直接送る時だけです。ただし端末自体を他人に触られるような場合は守りきれないので、一番安全なのは「開いている間だけ」モードです。
