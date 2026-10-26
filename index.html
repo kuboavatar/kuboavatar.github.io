@@ -1186,6 +1186,10 @@
         // Drop Gemma-style thought/channel blocks if they leak into the answer.
         t = t.replace(/<\|channel>thought[\s\S]*?(<channel\|>|<\|channel>)/g, "");
         t = t.replace(/<\|think>[\s\S]*?<\/think>/g, "");
+        var ci = t.lastIndexOf("<channel|>");
+        if (ci !== -1) t = t.slice(ci + "<channel|>".length);
+        t = t.replace(/<\|channel>[a-z]*/gi, "");
+        t = t.replace(/<channel\|>/gi, "");
         return t.trim();
       }
 
@@ -1206,8 +1210,15 @@
         var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: isGemma ? 1024 : 300 } };
         if (isGemma) {
           payload.generationConfig.thinkingConfig = { thinkingLevel: "minimal" };
-          var instruction = "【指示】" + PERSONA + " 指示への言及や、考える過程は書かず、返事だけを書いてください。\n\n";
-          if (contents.length) contents[0].parts[0].text = instruction + contents[0].parts[0].text;
+          if (/^gemma-4/i.test(model)) {
+            // Gemma 4 accepts a system instruction (per Google's Gemma on
+            // Gemini API doc). Putting the persona in the user message made
+            // it echo the persona back in English, so keep it out of there.
+            payload.system_instruction = { parts: [{ text: PERSONA + " 指示への言及や、考える過程は書かず、返事だけを日本語で書いてください。" }] };
+          } else {
+            var instruction = "【指示】" + PERSONA + " 指示への言及や、考える過程は書かず、返事だけを書いてください。\n\n";
+            if (contents.length) contents[0].parts[0].text = instruction + contents[0].parts[0].text;
+          }
         } else {
           payload.system_instruction = { parts: [{ text: PERSONA }] };
         }
@@ -1236,9 +1247,16 @@
         // documented way to call Gemma on the Gemini API). If that fails,
         // retry once through Google's OpenAI-compatible endpoint with the
         // same key and model, and report both errors if both fail.
-        return callGeminiNative(userText).catch(function (nativeErr) {
+        function ensureJapanese(text) {
+          // Gemma sometimes returns an English fragment of its own reasoning
+          // or a restated persona instead of the reply. Kinako always replies
+          // in Japanese, so a reply with no Japanese in it counts as a miss.
+          if (!/[ぁ-んァ-ヶ一-龠]/.test(text || "")) throw new Error("お返事が日本語じゃなかったよ");
+          return text;
+        }
+        return callGeminiNative(userText).then(ensureJapanese).catch(function (nativeErr) {
           return callOpenAICompatible(userText, "https://generativelanguage.googleapis.com/v1beta/openai").then(function (text) {
-            return cleanReplyText(text);
+            return ensureJapanese(cleanReplyText(text));
           }, function (compatErr) {
             throw new Error("Gemini形式: " + (nativeErr && nativeErr.message ? nativeErr.message : "エラー") + " / OpenAI互換形式: " + (compatErr && compatErr.message ? compatErr.message : "エラー"));
           });
