@@ -502,7 +502,7 @@
 
       var DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openai: "gpt-4o-mini", custom: "" };
       var MODEL_PRESETS = {
-        gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemma-4-26b-a4b-it", "gemma-3-27b-it"],
+        gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemma-4-26b-a4b-it", "gemma-4-31b-it"],
         openai: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"],
         custom: []
       };
@@ -1292,7 +1292,7 @@
           }).catch(function (err) {
             thinking = false;
             hint.textContent = "タップすると跳ねるにゃ";
-            var msg = err && err.message ? String(err.message).slice(0, 140) : "不明なエラー";
+            var msg = err && err.message ? String(err.message).slice(0, 240) : "不明なエラー";
             fallbackSpeak("プールからお返事したよ（AIエラー: " + msg + "）");
           });
         }, 900);
