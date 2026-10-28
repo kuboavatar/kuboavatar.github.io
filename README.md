@@ -27,7 +27,6 @@
 - **Groq（無料枠）**：`https://api.groq.com/openai/v1`。キーは console.groq.com で取得します。
 - **OpenRouter（無料モデルあり）**：`https://openrouter.ai/api/v1`。料金が0のモデルには、モデル一覧で「（無料）」と付いて先頭に並びます。
 - **GitHub Models（無料）**：`https://models.github.ai/inference`。GitHub のトークンをキーとして使います。
-- **Cerebras（無料枠）**：`https://api.cerebras.ai/v1`。キーは cloud.cerebras.ai で取得します。
 
 ### キーとモデルの扱い
 
