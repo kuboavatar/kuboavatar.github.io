@@ -1818,6 +1818,10 @@
           return text;
         }
         return callGeminiNative(userText).then(ensureSaneReply).catch(function (nativeErr) {
+          // A quota / rate-limit rejection would fail identically on the
+          // fallback route, and retrying only burns more of the free tier
+          // while keeping the visitor waiting, so surface it immediately.
+          if (/quota|RESOURCE_EXHAUSTED/i.test(nativeErr && nativeErr.message ? nativeErr.message : "")) throw nativeErr;
           return callOpenAICompatible(userText, "https://generativelanguage.googleapis.com/v1beta/openai").then(function (text) {
             return ensureSaneReply(cleanReplyText(text));
           }, function (compatErr) {
@@ -1980,7 +1984,15 @@
           }).catch(function (err) {
             thinking = false;
             hint.textContent = "タップすると跳ねるにゃ";
-            var msg = err && err.message ? String(err.message).slice(0, 240) : "不明なエラー";
+            var rawMsg = err && err.message ? String(err.message) : "不明なエラー";
+            var msg;
+            if (/exceeded your current quota|RESOURCE_EXHAUSTED/i.test(rawMsg)) {
+              msg = settings.service === "gemini"
+                ? "無料枠の上限に達したみたい。時間をおくか、別のモデルで試してにゃ（詳細: " + rawMsg.slice(0, 100) + "…）"
+                : "利用上限に達したみたい。課金・残高を確認するか、別のモデルで試してにゃ（詳細: " + rawMsg.slice(0, 100) + "…）";
+            } else {
+              msg = rawMsg.slice(0, 240);
+            }
             recordExchange(text, fallbackSpeak("AIエラー: " + msg), true);
           });
         }, 900);
