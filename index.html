@@ -474,6 +474,10 @@
           <button type="button" class="close-btn" id="closeHistoryBtn" aria-label="履歴を閉じる">×</button>
         </div>
         <p class="history-note">履歴はこの端末のブラウザの中にだけ保存され、他の端末とは共有されません。ブラウザのデータを消すと履歴も消えます。ここに残るのは、接続したAIサービスの返事（つながらなかった時は代替セリフ）で、Museアプリ内の本物のきなこの手紙の履歴とは別物です。</p>
+        <div style="margin: 2px 0 8px;">
+          <button type="button" id="downloadHistoryBtn" class="mini-btn">履歴を .md でダウンロード</button>
+          <span class="help" id="downloadHistoryStatus"></span>
+        </div>
         <div id="historyEmpty" class="history-empty">まだ履歴がないにゃ。<br />下の入力欄から話しかけると、ここに記録が残るよ。</div>
         <div id="historyList"></div>
       </div>
@@ -803,6 +807,8 @@
       var closeHistoryBtn = document.getElementById("closeHistoryBtn");
       var historyList = document.getElementById("historyList");
       var historyEmpty = document.getElementById("historyEmpty");
+      var downloadHistoryBtn = document.getElementById("downloadHistoryBtn");
+      var downloadHistoryStatus = document.getElementById("downloadHistoryStatus");
       var serviceSelect = document.getElementById("serviceSelect");
       var endpointField = document.getElementById("endpointField");
       var endpointInput = document.getElementById("endpointInput");
@@ -1588,6 +1594,7 @@
 
       function renderHistory() {
         while (historyList.firstChild) historyList.removeChild(historyList.firstChild);
+        downloadHistoryBtn.disabled = chatLog.length === 0;
         if (chatLog.length === 0) {
           historyEmpty.style.display = "";
           return;
@@ -1639,6 +1646,53 @@
           })(chatLog[i]);
         }
       }
+
+      // Export the log as a Markdown file. Only the conversation and its
+      // timestamps go in — never API keys or other settings.
+      function formatLogDateTime(at) {
+        var d = new Date(at);
+        function pad(n) { return (n < 10 ? "0" : "") + n; }
+        return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+      }
+      function buildHistoryMarkdown() {
+        var lines = [];
+        lines.push("# きなこAI接続版の履歴");
+        lines.push("");
+        lines.push("- 書き出し日時：" + formatLogDateTime(Date.now()));
+        lines.push("- 件数：" + chatLog.length + "件");
+        lines.push("- このファイルは、この端末のブラウザに保存されていた履歴を書き出したものです。APIキーは含まれていません。");
+        lines.push("");
+        for (var i = 0; i < chatLog.length; i++) {
+          var e = chatLog[i];
+          lines.push("## " + formatLogDateTime(e.at));
+          lines.push("");
+          lines.push("**あなた**");
+          lines.push("");
+          lines.push(e.user);
+          lines.push("");
+          lines.push("**きなこ役の返事**" + (e.alt ? "（代替セリフ）" : ""));
+          lines.push("");
+          lines.push(e.reply);
+          lines.push("");
+        }
+        return lines.join("\n");
+      }
+      function downloadHistory() {
+        if (!chatLog.length) return;
+        var blob = new Blob([buildHistoryMarkdown()], { type: "text/markdown;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var now = new Date();
+        function pad(n) { return (n < 10 ? "0" : "") + n; }
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "kinako-history-" + now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) + ".md";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        downloadHistoryStatus.textContent = chatLog.length + "件を書き出したよ";
+      }
+      downloadHistoryBtn.addEventListener("click", downloadHistory);
 
       function repeatReply(text) {
         closeHistory();
