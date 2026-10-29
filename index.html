@@ -339,12 +339,11 @@
             <option value="lmstudio">LM Studio（ローカル・無料）</option>
             <option value="groq">Groq（無料枠）</option>
             <option value="openrouter">OpenRouter（無料モデルあり）</option>
-            <option value="githubmodels">GitHub Models（無料）</option>
             <option value="customurl">カスタムURL（自由に書く）</option>
           </select>
           <label for="endpointInput" style="margin-top:10px;">エンドポイントURL（カスタム用）</label>
           <input type="url" id="endpointInput" placeholder="https://example.com/v1" autocomplete="off" spellcheck="false" />
-          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。Ollama は http://127.0.0.1:11434/v1 で、APIキーは空でOKです。繋がらない時は、Ollama の環境変数 OLLAMA_ORIGINS に https://kuboavatar.github.io を許可して、Ollamaを再起動してね。無料キーの入手先： Groq は console.groq.com、OpenRouter は openrouter.ai、GitHub Models は GitHub のトークンです。「カスタム用キー」の欄に入れてね。</p>
+          <p class="help">ベースURLを入れてね。末尾に /chat/completions が無い場合は自動で付けます。Ollama は http://127.0.0.1:11434/v1 で、APIキーは空でOKです。繋がらない時は、Ollama の環境変数 OLLAMA_ORIGINS に https://kuboavatar.github.io を許可して、Ollamaを再起動してね。無料キーの入手先： Groq は console.groq.com、OpenRouter は openrouter.aiです。「カスタム用キー」の欄に入れてね。</p>
         </div>
 
         <div class="field">
@@ -381,10 +380,6 @@
             <div>
               <label for="keyOpenrouterInput" style="font-size:0.85em;">OpenRouterのキー</label>
               <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyOpenrouterInput" placeholder="OpenRouterのキーを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
-            </div>
-            <div>
-              <label for="keyGithubmodelsInput" style="font-size:0.85em;">GitHub Modelsのトークン</label>
-              <input type="text" class="key-input" style="-webkit-text-security: disc;" id="keyGithubmodelsInput" placeholder="GitHubのトークンを入力" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </div>
             <div>
               <label for="keyCustomInput" style="font-size:0.85em;">その他カスタム用キー（Ollama／LM Studioは空でOK）</label>
@@ -621,7 +616,7 @@
         custom: []
       };
       var SERVICE_NAMES = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", custom: "カスタム" };
-      var ENDPOINT_PRESETS = { ollama: "http://127.0.0.1:11434/v1", lmstudio: "http://127.0.0.1:1234/v1", groq: "https://api.groq.com/openai/v1", openrouter: "https://openrouter.ai/api/v1", githubmodels: "https://models.github.ai/inference" };
+      var ENDPOINT_PRESETS = { ollama: "http://127.0.0.1:11434/v1", lmstudio: "http://127.0.0.1:1234/v1", groq: "https://api.groq.com/openai/v1", openrouter: "https://openrouter.ai/api/v1" };
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
       // Settings state (in memory). Key lives only here + chosen browser storage.
@@ -793,10 +788,9 @@
         claude: document.getElementById("keyClaudeInput"),
         groq: document.getElementById("keyGroqInput"),
         openrouter: document.getElementById("keyOpenrouterInput"),
-        githubmodels: document.getElementById("keyGithubmodelsInput"),
         custom: document.getElementById("keyCustomInput")
       };
-      var KEY_LABELS = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", groq: "Groq", openrouter: "OpenRouter", githubmodels: "GitHub Models", custom: "その他カスタム" };
+      var KEY_LABELS = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", groq: "Groq", openrouter: "OpenRouter", custom: "その他カスタム" };
       function presetNameForEndpoint(endpoint) {
         for (var k in ENDPOINT_PRESETS) { if (endpoint === ENDPOINT_PRESETS[k]) return k; }
         return "custom";

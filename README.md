@@ -26,7 +26,6 @@
 - **LM Studio（ローカル・無料）**：`http://127.0.0.1:1234/v1`。キーは不要です。
 - **Groq（無料枠）**：`https://api.groq.com/openai/v1`。キーは console.groq.com で取得します。
 - **OpenRouter（無料モデルあり）**：`https://openrouter.ai/api/v1`。料金が0のモデルには、モデル一覧で「（無料）」と付いて先頭に並びます。
-- **GitHub Models（無料）**：`https://models.github.ai/inference`。GitHub のトークンをキーとして使います。
 
 ### キーとモデルの扱い
 
