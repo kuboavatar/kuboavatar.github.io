@@ -349,7 +349,7 @@
         <div class="field">
           <label for="modelSelect">モデル</label>
           <select id="modelSelect"></select>
-          <input type="text" id="modelInput" placeholder="gemini-3.8-flash" autocomplete="off" spellcheck="false" style="display:none; margin-top:8px;" />
+          <input type="text" id="modelInput" placeholder="gemma-4-26b-a4b-it" autocomplete="off" spellcheck="false" style="display:none; margin-top:8px;" />
           <div style="margin-top:8px;">
             <button type="button" id="fetchModelsBtn" class="mini-btn">有効なモデル一覧を取得</button>
             <button type="button" id="resetModelsBtn" class="mini-btn">プリセットに戻す</button>
@@ -616,11 +616,11 @@
       // models.dev, cross-checked against Groq's official model list and
       // OpenRouter's live /models). Older generations stay usable through
       // "カスタム入力" or "有効なモデル一覧を取得".
-      var DEFAULT_MODELS = { gemini: "gemini-3.8-flash", openai: "gpt-6-luna", claude: "claude-sonnet-5-5", custom: "" };
+      var DEFAULT_MODELS = { gemini: "gemma-4-26b-a4b-it", openai: "gpt-6-luna", claude: "claude-haiku-5-5", custom: "" };
       var MODEL_PRESETS = {
-        gemini: ["gemini-3.8-flash", "gemini-4-argon", "gemini-3.5-flash-lite", "gemma-4-31b-it", "gemma-4-26b-a4b-it"],
-        openai: ["gpt-6-luna", "gpt-6.1-terra", "gpt-6.1-sol", "gpt-6-astra"],
-        claude: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5", "claude-fable-5-1"],
+        gemini: ["gemma-4-26b-a4b-it", "gemma-4-31b-it", "gemini-3.5-flash-lite"],
+        openai: ["gpt-6-luna", "gpt-6.1-terra", "gpt-6.1-sol"],
+        claude: ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"],
         custom: []
       };
       // Custom (OpenAI-compatible) presets are split per endpoint preset:
@@ -632,8 +632,6 @@
           { id: "google/gemma-4-26b-a4b-it:free", label: "google/gemma-4-26b-a4b-it:free（無料）" },
           { id: "google/gemma-4-31b-it:free", label: "google/gemma-4-31b-it:free（無料）" },
           { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "nvidia/nemotron-3-ultra-550b-a55b:free（無料）" },
-          "google/gemini-3.8-flash",
-          "google/gemini-4-argon",
           "openai/gpt-6-luna",
           "openai/gpt-6.1-sol",
           "anthropic/claude-sonnet-5.5",
@@ -650,7 +648,7 @@
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
       // Settings state (in memory). Key lives only here + chosen browser storage.
-      var settings = { service: "gemini", apiKey: "", apiKeys: {}, model: "gemini-3.8-flash", endpoint: "", saveMode: "session", modelOptions: {},
+      var settings = { service: "gemini", apiKey: "", apiKeys: {}, model: "gemma-4-26b-a4b-it", endpoint: "", saveMode: "session", modelOptions: {},
         voiceEngine: "browser", browserVoiceURI: "", voiceRate: 1.1, voicePitch: 1.15,
         localEnginePreset: "aivis", localVoiceUrl: "http://127.0.0.1:10101", localSpeakerId: "", localSpeakerLabel: "", localSpeed: 1.1, localSpeakers: [] };
 

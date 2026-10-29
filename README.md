@@ -31,11 +31,11 @@
 
 最初から選べるモデルは、各サービスの最新世代だけに絞ってあります（2026年10月時点）。古い世代のモデルも、「カスタム入力」で名前を書くか、「有効なモデル一覧を取得」で取り寄せれば使えます。
 
-- **Gemini**：gemini-3.8-flash（初期値）、gemini-4-argon、gemini-3.5-flash-lite、gemma-4-31b-it、gemma-4-26b-a4b-it
-- **OpenAI**：gpt-6-luna（初期値）、gpt-6.1-terra、gpt-6.1-sol、gpt-6-astra
-- **Claude**：claude-sonnet-5-5（初期値）、claude-haiku-5-5、claude-opus-5-5、claude-fable-5-1
+- **Gemini**：gemma-4-26b-a4b-it（初期値）、gemma-4-31b-it、gemini-3.5-flash-lite
+- **OpenAI**：gpt-6-luna（初期値）、gpt-6.1-terra、gpt-6.1-sol
+- **Claude**：claude-haiku-5-5（初期値）、claude-sonnet-5-5、claude-opus-5-5
 - **Groq**（カスタム）：openai/gpt-oss-20b（初期値）、openai/gpt-oss-120b、qwen/qwen3.8-27b
-- **OpenRouter**（カスタム）：無料モデルの google/gemma-4-26b-a4b-it:free（初期値）・google/gemma-4-31b-it:free などと、各社の最新モデルを合わせて10件
+- **OpenRouter**（カスタム）：無料モデルの google/gemma-4-26b-a4b-it:free（初期値）・google/gemma-4-31b-it:free などと、各社の最新モデルを合わせて8件
 - **Ollama／LM Studio**（カスタム）：自分のPCに入れたモデルを使うため、固定リストはありません（「カスタム入力」でモデルの名前を書きます）。
 
 カスタムでは、接続先プリセットを切り替えるとモデルリストもその接続先用に切り替わります。「有効なモデル一覧を取得」で取り寄せた一覧も、接続先ごとに別々に保存されます。
