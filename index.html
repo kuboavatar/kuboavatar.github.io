@@ -349,13 +349,13 @@
         <div class="field">
           <label for="modelSelect">モデル</label>
           <select id="modelSelect"></select>
-          <input type="text" id="modelInput" placeholder="gemini-2.5-flash" autocomplete="off" spellcheck="false" style="display:none; margin-top:8px;" />
+          <input type="text" id="modelInput" placeholder="gemini-3.8-flash" autocomplete="off" spellcheck="false" style="display:none; margin-top:8px;" />
           <div style="margin-top:8px;">
             <button type="button" id="fetchModelsBtn" class="mini-btn">有効なモデル一覧を取得</button>
             <button type="button" id="resetModelsBtn" class="mini-btn">プリセットに戻す</button>
             <span class="help" id="modelFetchStatus"></span>
           </div>
-          <p class="help">「有効なモデル一覧を取得」を押すと、キーで使えるモデルをサービスから取り寄せてリストに入れます。「カスタム入力」を選ぶと、モデル名を自由に書けます。サービスを切り替えると、そのサービスの初期値に戻ります。</p>
+          <p class="help">「有効なモデル一覧を取得」を押すと、キーで使えるモデルをサービスから取り寄せてリストに入れます。「カスタム入力」を選ぶと、モデル名を自由に書けます。サービスを切り替えると、そのサービスの初期値に戻ります。カスタムでは、接続先プリセットを切り替えるとモデルリストもその接続先用に切り替わります。</p>
         </div>
 
         <div class="field">
@@ -608,19 +608,45 @@
 
       var PERSONA = "あなたは「きなこ」として振る舞ってください。明るく弾む相棒のような口調で、短く自然な日本語で答えてください。語尾に「にゃ」を効果的な所だけ時々使ってください。読み上げられる前提なので、Markdown記法、URL、絵文字は使わないでください。1〜3文程度で簡潔に、温かく答えてください。";
 
-      var DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openai: "gpt-4o-mini", claude: "claude-sonnet-4-5", custom: "" };
+      // Model presets: latest generation only (curated 2026-10-29 from
+      // models.dev, cross-checked against Groq's official model list and
+      // OpenRouter's live /models). Older generations stay usable through
+      // "カスタム入力" or "有効なモデル一覧を取得".
+      var DEFAULT_MODELS = { gemini: "gemini-3.8-flash", openai: "gpt-6-luna", claude: "claude-sonnet-5-5", custom: "" };
       var MODEL_PRESETS = {
-        gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemma-4-26b-a4b-it", "gemma-4-31b-it"],
-        openai: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"],
-        claude: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1", "claude-sonnet-4-0"],
+        gemini: ["gemini-3.8-flash", "gemini-4-argon", "gemini-3.5-flash-lite", "gemma-4-31b-it", "gemma-4-26b-a4b-it"],
+        openai: ["gpt-6-luna", "gpt-6.1-terra", "gpt-6.1-sol", "gpt-6-astra"],
+        claude: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5", "claude-fable-5-1"],
         custom: []
       };
+      // Custom (OpenAI-compatible) presets are split per endpoint preset:
+      // Groq and OpenRouter use completely different model IDs, and local
+      // engines (Ollama / LM Studio) have no fixed list at all.
+      var CUSTOM_MODEL_PRESETS = {
+        groq: ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"],
+        openrouter: [
+          { id: "google/gemma-4-26b-a4b-it:free", label: "google/gemma-4-26b-a4b-it:free（無料）" },
+          { id: "google/gemma-4-31b-it:free", label: "google/gemma-4-31b-it:free（無料）" },
+          { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "nvidia/nemotron-3-ultra-550b-a55b:free（無料）" },
+          "google/gemini-3.8-flash",
+          "google/gemini-4-argon",
+          "openai/gpt-6-luna",
+          "openai/gpt-6.1-sol",
+          "anthropic/claude-sonnet-5.5",
+          "anthropic/claude-haiku-5.5",
+          "deepseek/deepseek-v4.1-flash"
+        ],
+        ollama: [],
+        lmstudio: [],
+        customurl: []
+      };
+      var CUSTOM_DEFAULT_MODELS = { groq: "openai/gpt-oss-20b", openrouter: "google/gemma-4-26b-a4b-it:free", ollama: "", lmstudio: "", customurl: "" };
       var SERVICE_NAMES = { gemini: "Gemini", openai: "OpenAI", claude: "Claude", custom: "カスタム" };
       var ENDPOINT_PRESETS = { ollama: "http://127.0.0.1:11434/v1", lmstudio: "http://127.0.0.1:1234/v1", groq: "https://api.groq.com/openai/v1", openrouter: "https://openrouter.ai/api/v1" };
       var STORAGE_KEY = "kinako-ai-settings-v1";
 
       // Settings state (in memory). Key lives only here + chosen browser storage.
-      var settings = { service: "gemini", apiKey: "", apiKeys: {}, model: "gemini-2.5-flash", endpoint: "", saveMode: "session", modelOptions: {},
+      var settings = { service: "gemini", apiKey: "", apiKeys: {}, model: "gemini-3.8-flash", endpoint: "", saveMode: "session", modelOptions: {},
         voiceEngine: "browser", browserVoiceURI: "", voiceRate: 1.1, voicePitch: 1.15,
         localEnginePreset: "aivis", localVoiceUrl: "http://127.0.0.1:10101", localSpeakerId: "", localSpeakerLabel: "", localSpeed: 1.1, localSpeakers: [] };
 
@@ -654,6 +680,15 @@
               if (Array.isArray(parsed.localSpeakers)) settings.localSpeakers = parsed.localSpeakers.filter(function (s) { return s && s.id !== undefined && s.label; });
             }
           } catch (e) {}
+        }
+        // Migrate a model list fetched before fetched lists were split
+        // per custom endpoint: the old single "custom" list belongs to
+        // whichever endpoint was saved alongside it.
+        if (settings.modelOptions && Array.isArray(settings.modelOptions.custom)) {
+          var legacyName = presetNameForEndpoint(settings.endpoint || "");
+          var legacyKey = "custom:" + (legacyName === "custom" ? "customurl" : legacyName);
+          if (!settings.modelOptions[legacyKey]) settings.modelOptions[legacyKey] = settings.modelOptions.custom;
+          delete settings.modelOptions.custom;
         }
         settings.apiKey = resolveActiveKey();
         if (!settings.model) settings.model = DEFAULT_MODELS[settings.service] || "";
@@ -1135,9 +1170,34 @@
       }
 
       // ---- Settings panel ----
+      // Which custom endpoint preset the form is currently pointing at.
+      // The endpoint URL wins; the preset select is the fallback (and the
+      // authority right after the user switches it to a free-form URL).
+      function currentCustomPresetName() {
+        if (endpointPreset && endpointPreset.value === "customurl") return "customurl";
+        var url = (endpointInput && endpointInput.value.trim()) || settings.endpoint || "";
+        for (var k in ENDPOINT_PRESETS) { if (url === ENDPOINT_PRESETS[k]) return k; }
+        if (endpointPreset && endpointPreset.value && ENDPOINT_PRESETS[endpointPreset.value]) return endpointPreset.value;
+        return "customurl";
+      }
+      // Fetched model lists are stored per service, and per endpoint
+      // preset for the custom service ("custom:groq", "custom:openrouter",
+      // ...), so one endpoint's list never leaks into another's.
+      function modelOptionsKey(svc) {
+        if (svc !== "custom") return svc;
+        return "custom:" + currentCustomPresetName();
+      }
+      function presetsForService(svc) {
+        if (svc !== "custom") return MODEL_PRESETS[svc] || [];
+        return CUSTOM_MODEL_PRESETS[currentCustomPresetName()] || [];
+      }
+      function defaultForService(svc) {
+        if (svc !== "custom") return DEFAULT_MODELS[svc] || "";
+        return CUSTOM_DEFAULT_MODELS[currentCustomPresetName()] || "";
+      }
       function rebuildModelOptions(svc, current) {
-        var fetched = settings.modelOptions && settings.modelOptions[svc];
-        var presets = (fetched && fetched.length) ? fetched : (MODEL_PRESETS[svc] || []);
+        var fetched = settings.modelOptions && settings.modelOptions[modelOptionsKey(svc)];
+        var presets = (fetched && fetched.length) ? fetched : presetsForService(svc);
         var ids = presets.map(function (p) { return typeof p === "string" ? p : p.id; });
         modelSelect.innerHTML = "";
         for (var i = 0; i < presets.length; i++) {
@@ -1150,14 +1210,13 @@
         customOpt.value = "__custom__";
         customOpt.textContent = "カスタム入力（自由に書く）";
         modelSelect.appendChild(customOpt);
-        if (svc === "custom") {
-          modelSelect.value = "__custom__";
-        } else if (current && ids.indexOf(current) !== -1) {
+        if (current && ids.indexOf(current) !== -1) {
           modelSelect.value = current;
         } else if (current) {
           modelSelect.value = "__custom__";
         } else {
-          modelSelect.value = DEFAULT_MODELS[svc] || ids[0] || "__custom__";
+          var def = defaultForService(svc);
+          modelSelect.value = (def && ids.indexOf(def) !== -1) ? def : (ids[0] || "__custom__");
         }
         syncModelInputVisibility();
       }
@@ -1287,7 +1346,7 @@
         if (settings.service === "custom" && !endpointInput.value) endpointInput.value = ENDPOINT_PRESETS.ollama;
         syncEndpointPreset();
         modelInput.value = settings.model || "";
-        modelInput.placeholder = DEFAULT_MODELS[settings.service] || "モデル名を入力";
+        modelInput.placeholder = defaultForService(settings.service) || "モデル名を入力";
         rebuildModelOptions(settings.service, settings.model || "");
         for (var ki in keyInputs) keyInputs[ki].value = settings.apiKeys[ki] || "";
         saveModeSelect.value = settings.saveMode || "session";
@@ -1325,14 +1384,24 @@
         var svc = serviceSelect.value;
         endpointField.style.display = svc === "custom" ? "" : "none";
         if (svc === "custom" && !endpointInput.value) { endpointInput.value = ENDPOINT_PRESETS.ollama; syncEndpointPreset(); }
-        modelInput.value = DEFAULT_MODELS[svc] || "";
-        modelInput.placeholder = DEFAULT_MODELS[svc] || "モデル名を入力";
-        rebuildModelOptions(svc, DEFAULT_MODELS[svc] || "");
+        var def = defaultForService(svc);
+        modelInput.value = def;
+        modelInput.placeholder = def || "モデル名を入力";
+        rebuildModelOptions(svc, def);
       });
 
       endpointPreset.addEventListener("change", function () {
         var url = ENDPOINT_PRESETS[endpointPreset.value];
         if (url) endpointInput.value = url;
+        // Switching the endpoint preset switches the model list too:
+        // each preset has its own presets and its own fetched list.
+        if (serviceSelect.value === "custom") {
+          var def = defaultForService("custom");
+          modelInput.value = def;
+          modelInput.placeholder = def || "モデル名を入力";
+          rebuildModelOptions("custom", def);
+          modelFetchStatus.textContent = "";
+        }
       });
 
       fetchModelsBtn.addEventListener("click", function () {
@@ -1415,7 +1484,8 @@
         req.then(function (ids) {
           if (!ids || !ids.length) throw new Error("モデルが0件だったよ");
           settings.modelOptions = settings.modelOptions || {};
-          settings.modelOptions[svc] = ids;
+          if (svc === "custom") syncEndpointPreset();
+          settings.modelOptions[modelOptionsKey(svc)] = ids;
           persistSettings();
           rebuildModelOptions(svc, currentFormModel() || (typeof ids[0] === "string" ? ids[0] : (ids[0] && ids[0].id)));
           var freeCount = ids.filter(function (p) { return typeof p !== "string" && /（無料）$/.test(p.label || ""); }).length;
@@ -1428,8 +1498,9 @@
 
       resetModelsBtn.addEventListener("click", function () {
         var svc = serviceSelect.value;
-        if (settings.modelOptions && settings.modelOptions[svc]) {
-          delete settings.modelOptions[svc];
+        var key = modelOptionsKey(svc);
+        if (settings.modelOptions && settings.modelOptions[key]) {
+          delete settings.modelOptions[key];
           persistSettings();
           rebuildModelOptions(svc, currentFormModel());
           modelFetchStatus.textContent = "プリセットのリストに戻したよ";
@@ -1726,11 +1797,12 @@
             });
           });
         }
-        // Newer OpenAI models (o-series, gpt-5 family) reject "max_tokens"
-        // and a non-default temperature; older ones want "max_tokens".
+        // Newer OpenAI models (o-series, gpt-5 and later families) reject
+        // "max_tokens" and a non-default temperature; older ones want
+        // "max_tokens".
         // Start with the modern shape and flip once if the error says so.
         var modelName = settings.model || "";
-        var reasoning = /^(o[0-9]|gpt-5)/i.test(modelName) && !/chat/i.test(modelName);
+        var reasoning = /^(o[0-9]|gpt-[5-9])/i.test(modelName) && !/chat/i.test(modelName);
         var body = { model: settings.model, messages: messages };
         if (!reasoning) body.temperature = 0.9;
         body.max_completion_tokens = reasoning ? 1000 : 400;
@@ -1766,20 +1838,31 @@
           messages.push({ role: recent[i].role, content: recent[i].text });
         }
         messages.push({ role: "user", content: userText });
-        return fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": settings.apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-          body: JSON.stringify({ model: model, max_tokens: 500, temperature: 0.9, system: PERSONA, messages: messages })
-        }, 25000).then(function (res) {
-          return res.json().then(function (data) {
-            if (!res.ok) throw new Error((data && data.error && data.error.message) || ("claude-error " + res.status));
-            var blocks = (data && data.content) || [];
-            var text = "";
-            for (var b = 0; b < blocks.length; b++) { if (blocks[b].type === "text" && blocks[b].text) text += blocks[b].text; }
-            text = text.trim();
-            if (!text) throw new Error("empty reply");
-            return text;
+        function doClaudeCall(withTemperature) {
+          var body = { model: model, max_tokens: 500, system: PERSONA, messages: messages };
+          if (withTemperature) body.temperature = 0.9;
+          return fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-api-key": settings.apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+            body: JSON.stringify(body)
+          }, 25000).then(function (res) {
+            return res.json().then(function (data) {
+              if (!res.ok) throw new Error((data && data.error && data.error.message) || ("claude-error " + res.status));
+              var blocks = (data && data.content) || [];
+              var text = "";
+              for (var b = 0; b < blocks.length; b++) { if (blocks[b].type === "text" && blocks[b].text) text += blocks[b].text; }
+              text = text.trim();
+              if (!text) throw new Error("empty reply");
+              return text;
+            });
           });
+        }
+        // Some newer Claude models reject the temperature parameter;
+        // if the error names it, retry once without it.
+        return doClaudeCall(true).catch(function (err) {
+          var msg = err && err.message ? String(err.message) : "";
+          if (/temperature/i.test(msg)) return doClaudeCall(false);
+          throw err;
         });
       }
 
