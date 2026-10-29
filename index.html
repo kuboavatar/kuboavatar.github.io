@@ -1761,7 +1761,7 @@
           contents.push({ role: recent[i].role === "assistant" ? "model" : "user", parts: [{ text: recent[i].text }] });
         }
         contents.push({ role: "user", parts: [{ text: userText }] });
-        var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: isGemma ? 1024 : 600 } };
+        var payload = { contents: contents, generationConfig: { temperature: 0.9, maxOutputTokens: 1024 } };
         if (isGemma) {
           payload.generationConfig.thinkingConfig = { thinkingLevel: "minimal" };
           if (/^gemma-4/i.test(model)) {
@@ -1778,6 +1778,16 @@
           // Gemini models think too, and their thought summaries can ride
           // along in the reply. Ask the API not to return thoughts at all.
           payload.generationConfig.thinkingConfig = { includeThoughts: false };
+          // Gemini 3 and later think at medium/high depth by default, and
+          // thinking tokens share the maxOutputTokens budget: a short chat
+          // reply can be starved out or arrive after the timeout. These
+          // models accept thinkingLevel (3.8 Flash supports low/medium/
+          // high; "minimal" is an error there), so pin chat replies to
+          // "low". Gemini 2.5 uses thinkingBudget instead and rejects
+          // thinkingLevel, so leave older models untouched.
+          if (/^gemini-([3-9]|[0-9]{2,})/i.test(model)) {
+            payload.generationConfig.thinkingConfig.thinkingLevel = "low";
+          }
         }
         return fetchWithTimeout(url, {
           method: "POST",
