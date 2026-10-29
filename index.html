@@ -942,6 +942,11 @@
       }
 
       function speak(text) {
+        // Never utter leaked thought markup, even for replies saved in
+        // the history before the cleaning above existed (the repeat
+        // button replays stored text verbatim).
+        text = cleanReplyText(text);
+        if (!text) text = "あれ、セリフが消えちゃったにゃ";
         bubble = text;
         lineIndex = 0;
         voiceSync = false;
@@ -1749,6 +1754,17 @@
         if (ci !== -1) t = t.slice(ci + "<channel|>".length);
         t = t.replace(/<\|channel>[a-z]*/gi, "");
         t = t.replace(/<channel\|>/gi, "");
+        // Plain <thought>/<thinking> blocks (some endpoints flatten the
+        // special tokens into ordinary tags). A leaked thought must never
+        // reach the screen or the voice: reading a long markup blob aloud
+        // can wedge iOS speech synthesis until the phone is restarted.
+        t = t.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
+        t = t.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
+        // An unclosed thought tag means the rest is all thought.
+        t = t.replace(/<thought>[\s\S]*$/i, "");
+        t = t.replace(/<thinking>[\s\S]*$/i, "");
+        t = t.replace(/<\/?thought>/gi, "");
+        t = t.replace(/<\/?thinking>/gi, "");
         return t.trim();
       }
 
@@ -1819,6 +1835,7 @@
         // a bad reply retries once via Google's OpenAI-compatible endpoint.
         function ensureSaneReply(text) {
           if (/^\s*THOUGHT\s*:/i.test(text || "")) throw new Error("思考メモが混ざったよ");
+          if (/<\s*(thought|thinking)\b/i.test(text || "")) throw new Error("思考メモが混ざったよ");
           if (!/[ぁ-んァ-ヶ一-龠]/.test(text || "")) throw new Error("お返事が日本語じゃなかったよ");
           return text;
         }
@@ -1979,7 +1996,7 @@
           callAI(text).then(function (reply) {
             thinking = false;
             hint.textContent = "タップすると跳ねるにゃ";
-            var cleaned = cleanReply(reply);
+            var cleaned = cleanReply(cleanReplyText(reply));
             history.push({ role: "user", text: text });
             history.push({ role: "assistant", text: cleaned });
             if (history.length > MAX_TURNS * 2) history = history.slice(-MAX_TURNS * 2);
