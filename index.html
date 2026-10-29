@@ -1329,7 +1329,7 @@
           settings.localSpeakers = fetchedList;
           persistSettings();
           if (settings.localSpeakerId !== "" && settings.localSpeakerId !== null) localSpeakerSelect.value = settings.localSpeakerId;
-          speakersStatus.textContent = count + "件の声が見つかったよ（リストを保存したよ）。選んだら「保存して閉じる」を押してね";
+          speakersStatus.textContent = count + "件の声が見つかったよ（リストを保存したよ）。選んだら、閉じるだけで保存されるよ";
         }).catch(function (err) {
           var msg = err && err.message ? String(err.message).slice(0, 80) : "不明なエラー";
           speakersStatus.textContent = "繋がらなかったよ（" + msg + "）。エンジンが起動しているか、URLとブラウザの許可を確認してね";
@@ -1373,6 +1373,10 @@
         settingsOverlay.classList.add("is-open");
       }
       function closeSettings() {
+        // Closing the panel applies the form first, so changes (voice,
+        // model, keys) are saved even without the save button. The button
+        // stays available below as the explicit path.
+        if (settingsOverlay.classList.contains("is-open")) applySettingsForm();
         settingsOverlay.classList.remove("is-open");
         for (var ki in keyInputs) keyInputs[ki].value = "";
       }
@@ -1514,7 +1518,7 @@
 
       modelSelect.addEventListener("change", syncModelInputVisibility);
 
-      saveSettingsBtn.addEventListener("click", function () {
+      function applySettingsForm() {
         settings.service = serviceSelect.value;
         settings.endpoint = endpointInput.value.trim();
         settings.model = currentFormModel() || DEFAULT_MODELS[settings.service] || "";
@@ -1537,6 +1541,10 @@
         settings.apiKey = resolveActiveKey();
         persistSettings();
         updateConnLabel();
+      }
+
+      saveSettingsBtn.addEventListener("click", function () {
+        applySettingsForm();
         closeSettings();
         replySource.textContent = (settings.apiKey || settings.service === "custom") ? (SERVICE_NAMES[settings.service] + "に接続したよ。入力するとAIがお返事するにゃ") : "キーが未設定だよ。入力への返事はプールからになるにゃ";
       });
