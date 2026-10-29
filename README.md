@@ -35,7 +35,7 @@
 - **OpenAI**：gpt-6-luna（初期値）、gpt-6.1-terra、gpt-6.1-sol
 - **Claude**：claude-haiku-5-5（初期値）、claude-sonnet-5-5、claude-opus-5-5
 - **Groq**（カスタム）：openai/gpt-oss-20b（初期値）、openai/gpt-oss-120b、qwen/qwen3.8-27b
-- **OpenRouter**（カスタム）：無料モデルの google/gemma-4-26b-a4b-it:free（初期値）・google/gemma-4-31b-it:free などと、各社の最新モデルを合わせて8件
+- **OpenRouter**（カスタム）：無料モデルの google/gemma-4-26b-a4b-it:free（初期値）などと、各社の最新モデルを合わせて7件
 - **Ollama／LM Studio**（カスタム）：自分のPCに入れたモデルを使うため、固定リストはありません（「カスタム入力」でモデルの名前を書きます）。
 
 カスタムでは、接続先プリセットを切り替えるとモデルリストもその接続先用に切り替わります。「有効なモデル一覧を取得」で取り寄せた一覧も、接続先ごとに別々に保存されます。
